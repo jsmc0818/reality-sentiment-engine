@@ -1,6 +1,6 @@
 {
   "asof": "2026-07-15",
-  "generated_at_utc": "2026-07-16T09:10:00+00:00",
+  "generated_at_utc": "2026-07-16T10:17:00+00:00",
   "refresh_policy": {
     "mode": "scheduled_static_publication",
     "stale_after_business_days": 2,
@@ -9,8 +9,8 @@
   "scopes": {
     "sp500": {
       "panic": 37.3,
-      "fundamentals": 84.2,
-      "fundamental_discrepancy": 21.5,
+      "fundamentals": 83.6,
+      "fundamental_discrepancy": 20.9,
       "coverage": {
         "panic_pct": 100.0,
         "panic_ready": true,
@@ -26,7 +26,7 @@
         "code": "normal",
         "label": "NORMAL: no edge from sentiment, do bottom-up work"
       },
-      "verdict": "Panic 37 / Consensus Earnings Health 84, Discrepancy +21.5pts. Sentiment offers no edge; decisions belong to stock selection.",
+      "verdict": "Panic 37 / Consensus Earnings Health 84, Discrepancy +20.9pts. Sentiment offers no edge; decisions belong to stock selection.",
       "analyst_eps": {
         "analyst_eps_target_weight_pct": 57.9,
         "analyst_eps_revision_30d_coverage_pct": 57.9,
@@ -35,14 +35,14 @@
         "analyst_eps_common_coverage_pct": 57.9,
         "analyst_eps_common_cohort_pct": 100.0,
         "n_analyst_trends": 30,
-        "analyst_eps_revision_30d_pct": 1.35,
-        "analyst_eps_revision_60d_pct": 3.458,
-        "analyst_eps_revision_90d_pct": 6.906,
+        "analyst_eps_revision_30d_pct": 1.31,
+        "analyst_eps_revision_60d_pct": 3.231,
+        "analyst_eps_revision_90d_pct": 6.815,
         "analyst_eps_up_breadth_30d_pct": 78.4,
         "analyst_eps_neutral_breadth_30d_pct": 21.6,
         "analyst_eps_down_breadth_30d_pct": 0.0,
         "analyst_eps_revision_breadth_30d_pct": 89.2,
-        "analyst_eps_revision_7d_pct": 0.279
+        "analyst_eps_revision_7d_pct": 0.314
       },
       "components": {
         "panic": {
@@ -53,13 +53,13 @@
           "put_call": 78.0
         },
         "fundamentals": {
-          "revision_score": 80.9,
+          "revision_score": 79.9,
           "revision_breadth": 89.2
         },
         "entry": {
           "forward_pe": 20.97,
           "equity_risk_premium_pts": 0.19,
-          "trailing_pe": 29.66
+          "trailing_pe": 29.68
         }
       },
       "data_quality": {
@@ -109,8 +109,8 @@
     },
     "ndx100": {
       "panic": 71.0,
-      "fundamentals": 88.3,
-      "fundamental_discrepancy": 59.3,
+      "fundamentals": 87.6,
+      "fundamental_discrepancy": 58.6,
       "coverage": {
         "panic_pct": 100.0,
         "panic_ready": true,
@@ -126,7 +126,7 @@
         "code": "normal",
         "label": "NORMAL: no edge from sentiment, do bottom-up work"
       },
-      "verdict": "Panic 71 / Consensus Earnings Health 88, Discrepancy +59.3pts. Sentiment offers no edge; decisions belong to stock selection.",
+      "verdict": "Panic 71 / Consensus Earnings Health 88, Discrepancy +58.6pts. Sentiment offers no edge; decisions belong to stock selection.",
       "analyst_eps": {
         "analyst_eps_target_weight_pct": 88.0,
         "analyst_eps_revision_30d_coverage_pct": 88.0,
@@ -135,14 +135,14 @@
         "analyst_eps_common_coverage_pct": 88.0,
         "analyst_eps_common_cohort_pct": 100.0,
         "n_analyst_trends": 30,
-        "analyst_eps_revision_30d_pct": 1.858,
-        "analyst_eps_revision_60d_pct": 4.078,
-        "analyst_eps_revision_90d_pct": 7.839,
+        "analyst_eps_revision_30d_pct": 1.821,
+        "analyst_eps_revision_60d_pct": 3.832,
+        "analyst_eps_revision_90d_pct": 7.744,
         "analyst_eps_up_breadth_30d_pct": 80.6,
         "analyst_eps_neutral_breadth_30d_pct": 18.7,
         "analyst_eps_down_breadth_30d_pct": 0.7,
         "analyst_eps_revision_breadth_30d_pct": 89.9,
-        "analyst_eps_revision_7d_pct": 0.677
+        "analyst_eps_revision_7d_pct": 0.748
       },
       "components": {
         "panic": {
@@ -153,13 +153,13 @@
           "put_call": 78.0
         },
         "fundamentals": {
-          "revision_score": 87.2,
+          "revision_score": 86.1,
           "revision_breadth": 89.9
         },
         "entry": {
           "forward_pe": 22.73,
           "equity_risk_premium_pts": -0.18,
-          "trailing_pe": 32.66
+          "trailing_pe": 32.69
         }
       },
       "data_quality": {
@@ -209,8 +209,8 @@
     },
     "mag7": {
       "panic": 63.6,
-      "fundamentals": 74.6,
-      "fundamental_discrepancy": 38.2,
+      "fundamentals": 74.2,
+      "fundamental_discrepancy": 37.8,
       "coverage": {
         "panic_pct": 100.0,
         "panic_ready": true,
@@ -226,7 +226,7 @@
         "code": "normal",
         "label": "NORMAL: no edge from sentiment, do bottom-up work"
       },
-      "verdict": "Panic 64 / Consensus Earnings Health 75, Discrepancy +38.2pts. Sentiment offers no edge; decisions belong to stock selection.",
+      "verdict": "Panic 64 / Consensus Earnings Health 74, Discrepancy +37.8pts. Sentiment offers no edge; decisions belong to stock selection.",
       "analyst_eps": {
         "analyst_eps_target_weight_pct": 100.0,
         "analyst_eps_revision_30d_coverage_pct": 100.0,
@@ -235,14 +235,14 @@
         "analyst_eps_common_coverage_pct": 100.0,
         "analyst_eps_common_cohort_pct": 100.0,
         "n_analyst_trends": 7,
-        "analyst_eps_revision_30d_pct": 0.524,
-        "analyst_eps_revision_60d_pct": 2.266,
-        "analyst_eps_revision_90d_pct": 3.865,
+        "analyst_eps_revision_30d_pct": 0.54,
+        "analyst_eps_revision_60d_pct": 2.106,
+        "analyst_eps_revision_90d_pct": 3.776,
         "analyst_eps_up_breadth_30d_pct": 71.4,
         "analyst_eps_neutral_breadth_30d_pct": 28.6,
         "analyst_eps_down_breadth_30d_pct": 0.0,
         "analyst_eps_revision_breadth_30d_pct": 85.7,
-        "analyst_eps_revision_7d_pct": -0.012
+        "analyst_eps_revision_7d_pct": 0.033
       },
       "components": {
         "panic": {
@@ -253,13 +253,13 @@
           "put_call": 78.0
         },
         "fundamentals": {
-          "revision_score": 67.1,
+          "revision_score": 66.6,
           "revision_breadth": 85.7
         },
         "entry": {
           "forward_pe": 25.31,
           "equity_risk_premium_pts": -0.63,
-          "trailing_pe": 32.51
+          "trailing_pe": 32.66
         }
       },
       "data_quality": {
