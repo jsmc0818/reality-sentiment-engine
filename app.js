@@ -288,7 +288,7 @@ function renderEvidence(reading) {
 
 function timelineDate(date, compact = false) {
   const value = new Date(`${date}T00:00:00Z`);
-  return value.toLocaleDateString([], compact
+  return value.toLocaleDateString("en-US", compact
     ? { month: "short", day: "numeric", timeZone: "UTC" }
     : { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
 }
@@ -384,7 +384,7 @@ function renderTimeline() {
   const state = document.getElementById("timeline-state");
   const activeSeries = [...selectedTimelineSeries];
   const methodology = timelineDate(timelinePayload.methodology_start);
-  const generated = new Date(timelinePayload.generated_at_utc).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  const generated = new Date(timelinePayload.generated_at_utc).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
   document.getElementById("timeline-methodology").textContent = `Methodology start ${methodology} · ${allPoints.length} validated daily ${allPoints.length === 1 ? "snapshot" : "snapshots"} · Updated ${generated}`;
 
   state.className = "timeline-state";
@@ -550,7 +550,7 @@ function observeReveals() {
 
 function render() {
   const generated = new Date(payload.generated_at_utc);
-  document.getElementById("asof").textContent = `Data as of ${payload.asof} · Updated ${generated.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`;
+  document.getElementById("asof").textContent = `Data as of ${payload.asof} · Updated ${generated.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`;
   document.getElementById("scope-tabs").replaceChildren(...Object.keys(payload.scopes).map((scope) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -607,6 +607,7 @@ if (typeof module !== "undefined") {
     console.assert(visualCoordinate(80, 80).y < visualCoordinate(80, 30).y);
     console.assert(timelineRange([{ date: "2025-01-01" }, { date: "2026-01-01" }], "1M").length === 1);
     console.assert(timelineRange([{ date: "2026-02-28" }, { date: "2026-03-31" }], "1M").length === 2);
+    console.assert(timelineDate("2026-07-15") === "Jul 15, 2026");
     console.assert(publicLanguage("Golden Zone / Fundamentals") === "Candidate Dislocation / Consensus Earnings Health");
   }
 }

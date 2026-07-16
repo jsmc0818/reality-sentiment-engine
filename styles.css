@@ -327,6 +327,7 @@ h2 { margin-bottom: 16px; font-size: clamp(2.45rem, 4.4vw, 4.8rem); line-height:
   background: rgba(11, 18, 22, .045);
   box-shadow: 0 22px 70px -38px rgba(20, 29, 26, .22);
 }
+.card-shell { display: grid; }
 .verdict-card {
   position: relative;
   min-height: 286px;
@@ -344,12 +345,8 @@ h2 { margin-bottom: 16px; font-size: clamp(2.45rem, 4.4vw, 4.8rem); line-height:
 .verdict-card.is-current { transform: translateY(-5px); border-color: color-mix(in srgb, var(--verdict-color) 50%, var(--paper-rule)); }
 .normal-verdict { --verdict-color: var(--normal); }
 .golden-verdict { --verdict-color: var(--gold); }
-.watch-verdict { --verdict-color: #8c7acb; }
 .trap-verdict { --verdict-color: var(--ice); }
 .fire-verdict { --verdict-color: var(--fire); }
-.watch-shell { grid-column: 1 / -1; }
-.watch-verdict { min-height: 220px; }
-.watch-verdict p { margin-top: 62px; }
 
 .why-layout {
   display: grid;
@@ -453,7 +450,6 @@ footer p { max-width: 620px; margin: 0; }
 
 @media (max-width: 700px) {
   .verdict-grid { grid-template-columns: 1fr; }
-  .watch-shell { grid-column: auto; }
   .current-verdict { grid-template-columns: 1fr; gap: 10px; }
   .timeline-controls { flex-direction: column; }
   .timeline-range-block { justify-items: start; }
