@@ -1,0 +1,47 @@
+name: publish-website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_run:
+    workflows: [daily-scores]
+    types: [completed]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check public market data
+        run: python -m pipeline.public_output data/scores.json data/timeline.json
+      - name: Check website data bindings
+        run: node app.js
+      - name: Prepare public website files
+        run: |
+          mkdir _site
+          cp index.html styles.css app.js _site/
+          cp -R assets _site/
+          mkdir _site/data
+          cp data/scores.json data/timeline.json _site/data/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v4

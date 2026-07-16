@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A market sentiment map that separates crowd panic from consensus earnings health.">
+  <meta name="theme-color" content="#050606">
+  <title>Panic / Consensus Earnings Health Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Panic and Consensus Earnings Health Engine home">
+      <span class="brand-mark" aria-hidden="true"></span>
+      Panic / Earnings Health
+    </a>
+    <p class="asof" id="asof">Loading market data…</p>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <div>
+          <p class="eyebrow">PANIC × EARNINGS HEALTH</p>
+          <h1 id="hero-title">Fear Is Loud. Expectations Clarify.</h1>
+        </div>
+        <p class="intro">Price stress moves left to right. Consensus earnings health moves bottom to top. One landscape shows whether fear is useful, justified, or dangerously absent.</p>
+      </div>
+
+      <div class="hero-toolbar">
+        <div class="scope-tabs" id="scope-tabs" role="group" aria-label="Choose a market"></div>
+        <div class="reading-stack">
+          <div class="selected-reading" id="selected-reading" aria-live="polite"></div>
+          <div class="evidence-strip" id="evidence-strip"></div>
+        </div>
+      </div>
+
+      <div class="map-shell">
+        <img class="quadrant-image" src="assets/quadrant-map.png" alt="A four-quadrant market map with Normal, Candidate Dislocation, Complacency Trap, and Real Fire states." width="1672" height="941" fetchpriority="high">
+        <div class="zone-label normal"><strong>Normal</strong><span>No sentiment edge</span></div>
+        <div class="zone-label golden"><strong>Candidate Dislocation</strong><span>Fear exceeds damage</span></div>
+        <div class="zone-label trap"><strong>Complacency Trap</strong><span>Damage beneath calm</span></div>
+        <div class="zone-label fire"><strong>Real Fire</strong><span>Fear confirms damage</span></div>
+        <div class="map-points" id="map-points" aria-label="Current market positions"></div>
+        <div class="axis fundamentals-axis" aria-label="Healthy consensus earnings are higher; deteriorating consensus earnings are lower"><span>Healthy earnings</span><i aria-hidden="true"></i><span>Deteriorating earnings</span></div>
+        <div class="axis fear-axis" aria-label="Fear increases to the right"><span>Less fear</span><i aria-hidden="true"></i><span>More fear</span></div>
+      </div>
+
+      <div class="hero-foot">
+        <p class="warmup" id="warmup"></p>
+        <a class="scroll-cue" href="#timeline-title"><span>View history</span><i aria-hidden="true">↓</i></a>
+      </div>
+    </section>
+
+    <div class="report-shell">
+    <section class="timeline-section report-section reveal" aria-labelledby="timeline-title">
+      <div class="section-number" aria-hidden="true">01</div>
+      <div class="timeline-heading-row">
+        <div class="section-heading">
+          <p class="eyebrow">DATA TIMELINE</p>
+          <h2 id="timeline-title">See How the Signals Moved.</h2>
+          <p>Every point is a validated daily publication. The chart starts at the current methodology date and grows prospectively, so a short history is shown honestly as a warm-up period.</p>
+        </div>
+        <div class="timeline-latest" id="timeline-latest" aria-live="polite"></div>
+      </div>
+
+      <div class="timeline-panel">
+        <div class="timeline-controls">
+          <div class="timeline-control-block">
+            <span class="timeline-control-label">Series</span>
+            <div class="timeline-toggle-group" id="timeline-series" role="group" aria-label="Choose timeline series">
+              <button class="timeline-toggle series-toggle" type="button" data-series="panic" aria-pressed="true" style="--series-color: #b66a18">Panic</button>
+              <button class="timeline-toggle series-toggle" type="button" data-series="fundamentals" aria-pressed="true" style="--series-color: #397a64">Consensus Earnings Health</button>
+              <button class="timeline-toggle series-toggle" type="button" data-series="gap" aria-pressed="false" style="--series-color: #7463b6">Dislocation Gap</button>
+            </div>
+          </div>
+          <div class="timeline-control-block timeline-range-block">
+            <span class="timeline-control-label">Range</span>
+            <div class="timeline-toggle-group range-toggles" id="timeline-ranges" role="group" aria-label="Choose timeline range">
+              <button class="timeline-toggle" type="button" data-range="1M" aria-pressed="false">1M</button>
+              <button class="timeline-toggle" type="button" data-range="3M" aria-pressed="false">3M</button>
+              <button class="timeline-toggle" type="button" data-range="1Y" aria-pressed="true">1Y</button>
+              <button class="timeline-toggle" type="button" data-range="All" aria-pressed="false">All</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline-chart-shell" id="timeline-chart-shell">
+          <svg id="timeline-chart" class="timeline-chart" viewBox="0 0 1200 500" role="img" tabindex="0" aria-labelledby="timeline-chart-title timeline-chart-desc">
+            <title id="timeline-chart-title">Sentiment indicator history</title>
+            <desc id="timeline-chart-desc">Focus the chart and use the left and right arrow keys to inspect validated daily readings.</desc>
+          </svg>
+          <div class="timeline-tooltip" id="timeline-tooltip" role="status" aria-live="polite"></div>
+          <p class="timeline-state" id="timeline-state" role="status"></p>
+        </div>
+        <div class="timeline-foot">
+          <p id="timeline-methodology">Loading timeline…</p>
+          <p class="timeline-keyboard">Keyboard: focus the chart, then use ← and → to inspect dates.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="verdict-section report-section reveal" aria-labelledby="meaning-title">
+      <div class="section-number" aria-hidden="true">02</div>
+      <div class="section-heading">
+        <p class="eyebrow">READ THE MAP</p>
+        <h2 id="meaning-title">What Does Each Quadrant Mean?</h2>
+        <p>Each zone translates the relationship between market fear and consensus earnings health into one clear research response.</p>
+      </div>
+      <aside class="current-verdict" id="current-verdict" aria-live="polite">
+        <span id="current-verdict-state">Loading verdict</span>
+        <p id="current-verdict-copy">The current market guidance will appear with validated data.</p>
+      </aside>
+      <div class="verdict-grid">
+        <div class="card-shell normal-shell"><article class="verdict-card normal-verdict" data-quadrant="normal"><div class="verdict-top"><span>Normal</span><small>No edge</small></div><p>Let stock selection, not market mood, drive the decision.</p></article></div>
+        <div class="card-shell golden-shell"><article class="verdict-card golden-verdict" data-quadrant="golden"><div class="verdict-top"><span>Candidate Dislocation</span><small>Research next</small></div><p>Fear is extreme while EPS revisions remain healthy. Check valuation, rates, and company-level evidence before considering deployment.</p></article></div>
+        <div class="card-shell watch-shell"><article class="verdict-card watch-verdict" data-quadrant="watch"><div class="verdict-top"><span>Watch</span><small>Wait for agreement</small></div><p>Fear is high, but earnings evidence is mixed. Wait for revision direction and breadth to agree before acting.</p></article></div>
+        <div class="card-shell trap-shell"><article class="verdict-card trap-verdict" data-quadrant="trap"><div class="verdict-top"><span>Complacency Trap</span><small>Hidden risk</small></div><p>Calm prices hide weakening EPS revisions. Investigate estimate risk instead of treating calm as safety.</p></article></div>
+        <div class="card-shell fire-shell"><article class="verdict-card fire-verdict" data-quadrant="fire"><div class="verdict-top"><span>Real Fire</span><small>Damage confirmed</small></div><p>Fear and earnings damage agree. Require stabilization before treating the setup as a candidate.</p></article></div>
+      </div>
+    </section>
+
+    <section class="components-section report-section reveal" aria-labelledby="components-title">
+      <div class="section-number" aria-hidden="true">03</div>
+      <div class="section-heading">
+        <p class="eyebrow">COMPONENT INDICATORS</p>
+        <h2 id="components-title">Why Each Signal Exists, and How It Works?</h2>
+        <p>Panic uses up to five years of history, with at least one year required. Consensus Earnings Health uses direct EPS revision magnitude and revision breadth, with tiny changes treated as neutral. Valuation stays separate as entry context.</p>
+      </div>
+      <div class="component-groups">
+        <div>
+          <h3><span class="key panic-key"></span>Panic Indicators</h3>
+          <div id="panic-components"></div>
+        </div>
+        <div>
+          <h3><span class="key fundamentals-key"></span>Consensus Earnings Health Evidence</h3>
+          <div id="fundamentals-components"></div>
+        </div>
+        <div>
+          <h3><span class="key entry-key"></span>Entry Diagnostics</h3>
+          <div id="entry-components"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="why-section report-section reveal" aria-labelledby="why-title">
+      <div class="section-number" aria-hidden="true">04</div>
+      <div class="why-layout">
+        <div class="section-heading">
+          <p class="eyebrow">WHY I BUILT THIS</p>
+          <h2 id="why-title">Fear Alone Is Not a Decision.</h2>
+        </div>
+        <article class="why-copy">
+          <p>I built the Panic / Consensus Earnings Health Engine because volatility is useful, but it is not an investment decision. VIX tells us when protection is expensive. It does not tell us whether forward earnings estimates are holding up.</p>
+          <p>Very short-dated contracts, systematic hedging, and concentrated index leadership can move volatility without proving that the underlying businesses are broken. VIX answers only one part of the question: how nervous is the market?</p>
+          <p>This is not a momentum indicator or a stand-alone volatility indicator. The period after the Iran conflict shows why simple volatility comparisons can mislead: a reading may look as severe as, or worse than, parts of the 2020 COVID shock even when market prices and earnings expectations tell a different story. The engine never treats volatility alone as a buy or sell signal. It asks whether market fear is confirmed by broad deterioration in forward earnings expectations.</p>
+          <p>The engine keeps the evidence clean. Panic measures market stress. Consensus Earnings Health measures only next-year EPS revision direction and the breadth of companies receiving upgrades. Valuation, equity risk premium, and price-versus-EPS divergence remain entry diagnostics because healthy earnings expectations do not automatically mean an attractive entry.</p>
+          <p>Dislocation Gap is the distance between the two meters: Consensus Earnings Health plus Panic minus 100. A positive gap means market stress is worse than the earnings evidence. It is a screening signal, not a substitute for valuation or company-level work.</p>
+          <p>The core values are separation, honest coverage, and decision usefulness. No weak proxy is allowed to masquerade as broken earnings. No incomplete history is presented as validated evidence.</p>
+        </article>
+      </div>
+    </section>
+    </div>
+
+  </main>
+
+  <footer>
+    <p>Market research, not investment advice. Consensus Earnings Health publishes only when analyst coverage passes. Three-month entry divergence requires 64 comparable daily endpoints.</p>
+    <p>Sources: Yahoo Finance, Cboe, FRED, and public constituent data.</p>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

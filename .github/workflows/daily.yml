@@ -1,0 +1,37 @@
+name: daily-scores
+on:
+  schedule:
+    - cron: "30 21 * * 1-5"   # 21:30 UTC = after US close, weekdays
+  workflow_dispatch:
+
+concurrency:
+  group: market-data-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: test public-data safety rules
+        run: python -m unittest discover -s tests -v
+      - run: python -m pipeline.run_daily
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      - name: validate public market-data contract
+        run: python -m pipeline.public_output data/scores.json data/timeline.json
+      - name: commit scores
+        run: |
+          git config user.name "sentiment-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/scores.json data/timeline.json data/eps_history_*.csv || true
+          git commit -m "daily scores $(date -u +%F)" || echo "no changes"
+          git push
