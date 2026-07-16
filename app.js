@@ -20,13 +20,6 @@ const PANIC_WEIGHTS = {
 
 const FUNDAMENTALS_WEIGHTS = { revision_score: 60, revision_breadth: 40 };
 const ENTRY_ORDER = ["forward_pe", "equity_risk_premium_pts", "trailing_pe", "divergence_pts"];
-const TIMELINE_SERIES = {
-  panic: { key: "panic", label: "Panic", color: "#b66a18", scale: "score" },
-  fundamentals: { key: "fundamentals", label: "Consensus Earnings Health", color: "#397a64", scale: "score" },
-  gap: { key: "fundamental_discrepancy", label: "Dislocation Gap", color: "#7463b6", scale: "gap" },
-};
-const TIMELINE_MONTHS = { "1M": 1, "3M": 3, "1Y": 12 };
-const CHART = { width: 1200, height: 500, left: 72, right: 78, top: 36, bottom: 62 };
 const QUADRANT_LABELS = {
   normal: "Normal",
   golden: "Candidate Dislocation",
@@ -60,12 +53,7 @@ const COMPONENTS = {
 };
 
 let payload;
-let timelinePayload;
 let selected = "sp500";
-let selectedRange = "1Y";
-const selectedTimelineSeries = new Set(["panic", "fundamentals"]);
-let visibleTimelinePoints = [];
-let timelineFocusIndex = -1;
 let revealObserver;
 
 function visualCoordinate(panic, fundamentals) {
@@ -159,17 +147,6 @@ function validateTimeline(data) {
     });
   });
   return data;
-}
-
-function timelineRange(points, range) {
-  if (!points.length || range === "All") return points.slice();
-  const cutoff = new Date(`${points.at(-1).date}T00:00:00Z`);
-  const day = cutoff.getUTCDate();
-  cutoff.setUTCDate(1);
-  cutoff.setUTCMonth(cutoff.getUTCMonth() - TIMELINE_MONTHS[range]);
-  const lastDay = new Date(Date.UTC(cutoff.getUTCFullYear(), cutoff.getUTCMonth() + 1, 0)).getUTCDate();
-  cutoff.setUTCDate(Math.min(day, lastDay));
-  return points.filter((point) => new Date(`${point.date}T00:00:00Z`) >= cutoff);
 }
 
 function publicLanguage(text) {
@@ -286,222 +263,6 @@ function renderEvidence(reading) {
   }));
 }
 
-function timelineDate(date, compact = false) {
-  const value = new Date(`${date}T00:00:00Z`);
-  return value.toLocaleDateString("en-US", compact
-    ? { month: "short", day: "numeric", timeZone: "UTC" }
-    : { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
-}
-
-function timelineX(point) {
-  const plotWidth = CHART.width - CHART.left - CHART.right;
-  if (visibleTimelinePoints.length < 2) return CHART.left + plotWidth / 2;
-  const start = Date.parse(`${visibleTimelinePoints[0].date}T00:00:00Z`);
-  const end = Date.parse(`${visibleTimelinePoints.at(-1).date}T00:00:00Z`);
-  return CHART.left + ((Date.parse(`${point.date}T00:00:00Z`) - start) / (end - start)) * plotWidth;
-}
-
-function timelineY(value, scale) {
-  const plotHeight = CHART.height - CHART.top - CHART.bottom;
-  const normalized = scale === "gap" ? (value + 100) / 200 : value / 100;
-  return CHART.top + (1 - normalized) * plotHeight;
-}
-
-function timelinePath(points, series) {
-  return points.map((point, index) => `${index ? "L" : "M"}${timelineX(point).toFixed(2)},${timelineY(point[series.key], series.scale).toFixed(2)}`).join(" ");
-}
-
-function renderTimelineLatest(points) {
-  const latestBox = document.getElementById("timeline-latest");
-  latestBox.replaceChildren();
-  const scope = document.createElement("span");
-  scope.textContent = SCOPE_NAMES[selected];
-  const latest = points.at(-1);
-  if (!latest) {
-    const message = document.createElement("strong");
-    message.textContent = "No validated history yet";
-    latestBox.append(scope, message);
-    return;
-  }
-  const date = document.createElement("strong");
-  date.textContent = timelineDate(latest.date);
-  const values = document.createElement("small");
-  values.textContent = `Panic ${latest.panic.toFixed(1)} · Earnings Health ${latest.fundamentals.toFixed(1)} · Gap ${latest.fundamental_discrepancy >= 0 ? "+" : ""}${latest.fundamental_discrepancy.toFixed(1)}`;
-  latestBox.append(scope, date, values);
-}
-
-function showTimelinePoint(index) {
-  if (!visibleTimelinePoints.length) return;
-  timelineFocusIndex = Math.max(0, Math.min(index, visibleTimelinePoints.length - 1));
-  const point = visibleTimelinePoints[timelineFocusIndex];
-  const x = timelineX(point);
-  const cursor = document.getElementById("timeline-cursor");
-  const tooltip = document.getElementById("timeline-tooltip");
-  if (!cursor || !tooltip) return;
-
-  cursor.removeAttribute("hidden");
-  cursor.innerHTML = `<line class="timeline-cursor-line" x1="${x}" y1="${CHART.top}" x2="${x}" y2="${CHART.height - CHART.bottom}"></line>`;
-  selectedTimelineSeries.forEach((seriesName) => {
-    const series = TIMELINE_SERIES[seriesName];
-    cursor.insertAdjacentHTML("beforeend", `<circle class="timeline-cursor-dot" cx="${x}" cy="${timelineY(point[series.key], series.scale)}" r="6" fill="${series.color}"></circle>`);
-  });
-
-  const date = document.createElement("time");
-  date.dateTime = point.date;
-  date.textContent = timelineDate(point.date);
-  const rows = [...selectedTimelineSeries].map((seriesName) => {
-    const series = TIMELINE_SERIES[seriesName];
-    const row = document.createElement("span");
-    const label = document.createElement("i");
-    label.style.setProperty("--series-color", series.color);
-    label.textContent = series.label;
-    const value = document.createElement("strong");
-    const number = point[series.key];
-    value.textContent = `${series.scale === "gap" && number >= 0 ? "+" : ""}${number.toFixed(1)}`;
-    row.append(label, value);
-    return row;
-  });
-  tooltip.replaceChildren(date, ...rows);
-  tooltip.classList.add("is-visible");
-  const chart = document.getElementById("timeline-chart");
-  tooltip.style.left = `${chart.offsetLeft + (x / CHART.width) * chart.clientWidth}px`;
-  tooltip.dataset.align = x < CHART.width * .25 ? "left" : x > CHART.width * .75 ? "right" : "center";
-}
-
-function hideTimelinePoint() {
-  document.getElementById("timeline-cursor")?.setAttribute("hidden", "");
-  document.getElementById("timeline-tooltip")?.classList.remove("is-visible");
-}
-
-function renderTimeline() {
-  if (!timelinePayload) return;
-  const allPoints = timelinePayload.scopes[selected];
-  visibleTimelinePoints = timelineRange(allPoints, selectedRange);
-  timelineFocusIndex = visibleTimelinePoints.length - 1;
-  renderTimelineLatest(allPoints);
-
-  const svg = document.getElementById("timeline-chart");
-  const state = document.getElementById("timeline-state");
-  const activeSeries = [...selectedTimelineSeries];
-  const methodology = timelineDate(timelinePayload.methodology_start);
-  const generated = new Date(timelinePayload.generated_at_utc).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
-  document.getElementById("timeline-methodology").textContent = `Methodology start ${methodology} · ${allPoints.length} validated daily ${allPoints.length === 1 ? "snapshot" : "snapshots"} · Updated ${generated}`;
-
-  state.className = "timeline-state";
-  state.textContent = "";
-  svg.removeAttribute("hidden");
-  if (!activeSeries.length) {
-    svg.setAttribute("hidden", "");
-    state.textContent = "Choose at least one series to draw the timeline.";
-    state.classList.add("is-visible");
-    return;
-  }
-  if (!visibleTimelinePoints.length) {
-    svg.setAttribute("hidden", "");
-    state.textContent = allPoints.length ? "No validated snapshots fall inside this range. Choose All to see the available history." : "No validated timeline snapshots are available yet. The chart will begin with the first successful daily publication.";
-    state.classList.add("is-visible");
-    return;
-  }
-  if (visibleTimelinePoints.length === 1) {
-    state.textContent = "One validated snapshot is available. A trend line will appear after the next successful daily publication.";
-    state.classList.add("is-visible", "is-note");
-  }
-
-  const hasScore = activeSeries.some((name) => TIMELINE_SERIES[name].scale === "score");
-  const hasGap = activeSeries.includes("gap");
-  const axisValues = hasScore ? [0, 25, 50, 75, 100] : [-100, -50, 0, 50, 100];
-  const axisScale = hasScore ? "score" : "gap";
-  const plotRight = CHART.width - CHART.right;
-  const plotBottom = CHART.height - CHART.bottom;
-  const grid = axisValues.map((value) => {
-    const y = timelineY(value, axisScale);
-    return `<line class="timeline-grid" x1="${CHART.left}" y1="${y}" x2="${plotRight}" y2="${y}"></line><text class="timeline-axis-label" x="${CHART.left - 14}" y="${y + 5}" text-anchor="end">${value}</text>`;
-  }).join("");
-  const rightAxis = hasGap && hasScore ? [100, 50, 0, -50, -100].map((value, index) => {
-    const y = timelineY([100, 75, 50, 25, 0][index], "score");
-    return `<text class="timeline-axis-label gap-axis-label" x="${plotRight + 15}" y="${y + 5}">${value}</text>`;
-  }).join("") : "";
-
-  const tickCount = Math.min(5, visibleTimelinePoints.length);
-  const tickIndexes = tickCount === 1 ? [0] : [...new Set(Array.from({ length: tickCount }, (_, index) => Math.round(index * (visibleTimelinePoints.length - 1) / (tickCount - 1))))];
-  const xTicks = tickIndexes.map((index) => {
-    const point = visibleTimelinePoints[index];
-    const x = timelineX(point);
-    return `<line class="timeline-x-tick" x1="${x}" y1="${plotBottom}" x2="${x}" y2="${plotBottom + 8}"></line><text class="timeline-date-label" x="${x}" y="${plotBottom + 34}" text-anchor="middle">${timelineDate(point.date, true)}</text>`;
-  }).join("");
-
-  const thresholds = [
-    selectedTimelineSeries.has("panic") && [75, "score", "panic", "High panic 75"],
-    selectedTimelineSeries.has("fundamentals") && [60, "score", "healthy", "Healthy earnings 60"],
-    selectedTimelineSeries.has("fundamentals") && [40, "score", "broken", "Breaking earnings 40"],
-    selectedTimelineSeries.has("gap") && [0, "gap", "gap", "Gap baseline 0"],
-  ].filter(Boolean).map(([value, scale, className, label]) => {
-    const y = timelineY(value, scale);
-    return `<line class="timeline-threshold ${className}" x1="${CHART.left}" y1="${y}" x2="${plotRight}" y2="${y}"></line><text class="timeline-threshold-label ${className}" x="${CHART.left + 10}" y="${y - 7}">${label}</text>`;
-  }).join("");
-
-  const lines = activeSeries.map((seriesName) => {
-    const series = TIMELINE_SERIES[seriesName];
-    const latest = visibleTimelinePoints.at(-1);
-    const path = visibleTimelinePoints.length > 1
-      ? `<path class="timeline-line" d="${timelinePath(visibleTimelinePoints, series)}" stroke="${series.color}"></path>`
-      : "";
-    return `${path}<circle class="timeline-endpoint" cx="${timelineX(latest)}" cy="${timelineY(latest[series.key], series.scale)}" r="5" fill="${series.color}"></circle>`;
-  }).join("");
-
-  svg.innerHTML = `
-    <title id="timeline-chart-title">${SCOPE_NAMES[selected]} sentiment indicator history</title>
-    <desc id="timeline-chart-desc">${visibleTimelinePoints.length} validated daily snapshots. Focus the chart and use the left and right arrow keys to inspect readings.</desc>
-    <rect class="timeline-plot" x="${CHART.left}" y="${CHART.top}" width="${plotRight - CHART.left}" height="${plotBottom - CHART.top}"></rect>
-    ${grid}${rightAxis}${thresholds}${xTicks}${lines}
-    <g id="timeline-cursor" hidden></g>
-    <rect class="timeline-hit-area" x="${CHART.left}" y="${CHART.top}" width="${plotRight - CHART.left}" height="${plotBottom - CHART.top}"></rect>`;
-  const shell = document.getElementById("timeline-chart-shell");
-  requestAnimationFrame(() => {
-    const latestX = (timelineX(visibleTimelinePoints.at(-1)) / CHART.width) * svg.clientWidth;
-    shell.scrollLeft = Math.max(0, latestX - shell.clientWidth / 2);
-  });
-  if (document.activeElement === svg) showTimelinePoint(timelineFocusIndex);
-}
-
-function bindTimelineControls() {
-  document.querySelectorAll("[data-series]").forEach((button) => button.addEventListener("click", () => {
-    const series = button.dataset.series;
-    selectedTimelineSeries.has(series) ? selectedTimelineSeries.delete(series) : selectedTimelineSeries.add(series);
-    button.setAttribute("aria-pressed", String(selectedTimelineSeries.has(series)));
-    hideTimelinePoint();
-    renderTimeline();
-  }));
-  document.querySelectorAll("[data-range]").forEach((button) => button.addEventListener("click", () => {
-    selectedRange = button.dataset.range;
-    document.querySelectorAll("[data-range]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
-    hideTimelinePoint();
-    renderTimeline();
-  }));
-
-  const svg = document.getElementById("timeline-chart");
-  svg.addEventListener("pointermove", (event) => {
-    if (!visibleTimelinePoints.length) return;
-    const rect = svg.getBoundingClientRect();
-    const viewX = ((event.clientX - rect.left) / rect.width) * CHART.width;
-    const nearest = visibleTimelinePoints.reduce((best, point, index) => Math.abs(timelineX(point) - viewX) < Math.abs(timelineX(visibleTimelinePoints[best]) - viewX) ? index : best, 0);
-    showTimelinePoint(nearest);
-  });
-  svg.addEventListener("pointerleave", () => {
-    if (document.activeElement !== svg) hideTimelinePoint();
-  });
-  svg.addEventListener("focus", () => showTimelinePoint(timelineFocusIndex < 0 ? visibleTimelinePoints.length - 1 : timelineFocusIndex));
-  svg.addEventListener("blur", hideTimelinePoint);
-  svg.addEventListener("keydown", (event) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key) || !visibleTimelinePoints.length) return;
-    event.preventDefault();
-    if (event.key === "Home") timelineFocusIndex = 0;
-    else if (event.key === "End") timelineFocusIndex = visibleTimelinePoints.length - 1;
-    else timelineFocusIndex += event.key === "ArrowRight" ? 1 : -1;
-    showTimelinePoint(timelineFocusIndex);
-  });
-}
-
 function selectScope(scope) {
   selected = scope;
   const reading = payload.scopes[scope];
@@ -524,7 +285,6 @@ function selectScope(scope) {
   document.getElementById("warmup").textContent = `Consensus Earnings Health ready · ${coverage.fundamentals_pct}% market-cap-proxy coverage.${commonWeight}${panicDate} ${entryStatus}`;
   renderEvidence(reading);
   renderComponents(scope, reading);
-  renderTimeline();
   observeReveals();
 }
 
@@ -562,7 +322,6 @@ function render() {
     return button;
   }));
   renderPoints();
-  bindTimelineControls();
   selectScope(selected);
 }
 
@@ -575,18 +334,6 @@ if (typeof document !== "undefined") {
     .then((scores) => {
       payload = validatePayload(scores);
       render();
-      return loadJson("data/timeline.json")
-        .then((timeline) => {
-          timelinePayload = validateTimeline(timeline);
-          renderTimeline();
-        })
-        .catch(() => {
-          document.getElementById("timeline-latest").textContent = "Timeline data is temporarily unavailable.";
-          document.getElementById("timeline-chart").setAttribute("hidden", "");
-          document.getElementById("timeline-methodology").textContent = "The current scores remain available.";
-          document.getElementById("timeline-state").textContent = "The timeline will return after its next validated publication.";
-          document.getElementById("timeline-state").classList.add("is-visible");
-        });
     })
     .catch(() => {
       document.getElementById("asof").textContent = "Market data is temporarily unavailable";
@@ -596,7 +343,7 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { indicatorBand, publicLanguage, timelineRange, validatePayload, validateTimeline, visualCoordinate };
+  module.exports = { indicatorBand, publicLanguage, validatePayload, validateTimeline, visualCoordinate };
   if (require.main === module) {
     const fs = require("node:fs");
     const data = JSON.parse(fs.readFileSync("data/scores.json", "utf8"));
@@ -605,9 +352,6 @@ if (typeof module !== "undefined") {
     console.assert(indicatorBand(80, "panic")[0] === "high pressure");
     console.assert(indicatorBand(50, "fundamentals")[0] === "mixed evidence");
     console.assert(visualCoordinate(80, 80).y < visualCoordinate(80, 30).y);
-    console.assert(timelineRange([{ date: "2025-01-01" }, { date: "2026-01-01" }], "1M").length === 1);
-    console.assert(timelineRange([{ date: "2026-02-28" }, { date: "2026-03-31" }], "1M").length === 2);
-    console.assert(timelineDate("2026-07-15") === "Jul 15, 2026");
     console.assert(publicLanguage("Golden Zone / Fundamentals") === "Candidate Dislocation / Consensus Earnings Health");
   }
 }

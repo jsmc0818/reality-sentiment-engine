@@ -70,8 +70,8 @@ The timeline is prospective hardened-methodology history. `methodology_start`
 is the first real score produced under that methodology. Never backfill, splice,
 or label legacy Shiller earnings, proxy-overlay backtests, reconstructed analyst
 estimates, or interpolated values as historical Consensus Earnings Health. Missing
-dates remain missing. The chart must disclose the methodology start instead of
-implying that the series existed earlier.
+dates remain missing. Any future visualization must disclose the methodology
+start instead of implying that the series existed earlier.
 
 ## Static publication and refresh
 
