@@ -9,6 +9,7 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from functools import lru_cache
 from urllib.parse import urljoin
 
@@ -41,11 +42,14 @@ def _safe_error(error: Exception) -> str:
 def yahoo_history(tickers, start="2015-01-01", end=None) -> pd.DataFrame:
     """Adjusted close panel, columns = tickers."""
     try:
+        requested = [tickers] if isinstance(tickers, str) else list(tickers)
         df = yf.download(tickers, start=start, end=end, auto_adjust=True,
                          progress=False)["Close"]
         if isinstance(df, pd.Series):
-            df = df.to_frame(tickers if isinstance(tickers, str) else tickers[0])
-        return df.dropna(how="all")
+            df = df.to_frame(requested[0])
+        # Preserve failed names as NaN columns so downstream universe-coverage
+        # gates cannot mistake a partial Yahoo response for a complete panel.
+        return df.reindex(columns=requested).dropna(how="all")
     except Exception as e:  # noqa: BLE001
         log.error("yahoo_history failed for %s: %s", tickers, e)
         return pd.DataFrame()
@@ -296,9 +300,6 @@ def cboe_put_call() -> pd.Series:
 # ---------------------------------------------------------------- forward EPS
 def _signed_eps_change_pct(current: float, prior: float) -> float:
     """Directionally correct EPS change across zero and for negative EPS."""
-    if current * prior < 0:
-        return (config.EPS_REVISION_CAP_PCT
-                if current > prior else -config.EPS_REVISION_CAP_PCT)
     scale = max(abs(current), abs(prior), config.EPS_SCALE_FLOOR)
     change = (current - prior) / scale * 100
     return float(max(-config.EPS_REVISION_CAP_PCT,
@@ -359,11 +360,47 @@ def _ticker_eps_trend(ticker: str) -> dict:
         return {}
 
 
-def forward_eps_snapshot(scope: str) -> dict:
+def _stored_eps_snapshot(scope: str, asof) -> dict:
+    """Return an already-collected same-session snapshot for safe rebuilds."""
+    path = os.path.join(config.DATA_DIR, f"eps_history_{scope}.csv")
+    if not os.path.exists(path):
+        return {}
+    try:
+        history = pd.read_csv(path)
+        target = pd.Timestamp(asof).strftime("%Y-%m-%d")
+        rows = history[history["asof"].astype(str) == target]
+        if rows.empty:
+            return {}
+        snapshot = {
+            key: (None if pd.isna(value) else value)
+            for key, value in rows.iloc[-1].to_dict().items()
+        }
+        return snapshot if snapshot.get("source_observation_date") == target else {}
+    except Exception as e:  # noqa: BLE001
+        log.warning("stored EPS snapshot unreadable for %s: %s", scope, e)
+        return {}
+
+
+def forward_eps_snapshot(scope: str, market_asof=None, now_utc=None) -> dict:
     """Scope-weighted trailing and forward EPS inputs from constituent estimates.
     The broad indices are cap-weighted; Mag7 is equal-weighted to match its price basket.
     Returns a dict with valuation and analyst-revision diagnostics.
     Appends daily to data/eps_history_{scope}.csv so revision history self-accumulates."""
+    observation_date = pd.Timestamp(
+        (now_utc or datetime.now(timezone.utc)).date()
+    ).normalize()
+    if (market_asof is not None
+            and observation_date != pd.Timestamp(market_asof).normalize()):
+        stored = _stored_eps_snapshot(scope, market_asof)
+        if stored:
+            return stored
+        log.error(
+            "forward_eps_snapshot(%s): EPS observation date %s does not match "
+            "the completed market session %s",
+            scope, observation_date.date(), pd.Timestamp(market_asof).date(),
+        )
+        return {}
+
     tickers = constituents(scope)
     ranked_rows = _ranked_market_cap_proxy(scope, tickers)
     if not ranked_rows:
@@ -402,7 +439,7 @@ def forward_eps_snapshot(scope: str) -> dict:
     trl_pe = (1.0 / float((trailing_w / trailing["trl_pe"]).sum())
               if len(trailing) else None)
 
-    asof = pd.Timestamp.today().strftime("%Y-%m-%d")
+    asof = observation_date.strftime("%Y-%m-%d")
     target_weight = float(target["proxy_weight"].sum())
     snap = {
         "asof": asof,

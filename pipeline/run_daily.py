@@ -19,7 +19,7 @@ def completed_market_cutoff(now_utc=None) -> pd.Timestamp:
     """Latest date safe for daily bars; the workflow runs after 21:00 UTC."""
     now = now_utc or datetime.now(timezone.utc)
     cutoff = pd.Timestamp(now.date())
-    return cutoff if now.hour >= 21 else cutoff - pd.Timedelta(days=1)
+    return cutoff if now.hour >= 21 else cutoff - pd.offsets.BDay(1)
 
 
 def through_cutoff(data, cutoff):
@@ -30,6 +30,70 @@ def through_cutoff(data, cutoff):
     if index.tz is not None:
         index = index.tz_convert(None)
     return data.loc[index.normalize() <= cutoff]
+
+
+def canonical_market_asof(index_prices, mag7_prices, cutoff) -> pd.Timestamp:
+    """Find one complete common session inside the public staleness limit."""
+    panels = (
+        (index_prices, list(config.INDEX_TICKER.values()), 1.0),
+        (mag7_prices, config.MAG7_TICKERS, config.MIN_MAG7_PRICE_COVERAGE),
+    )
+    common_dates = None
+    for panel, names, minimum in panels:
+        aligned = panel.reindex(columns=names) if not panel.empty else panel
+        coverage = C.price_coverage(aligned, len(names))
+        complete = {
+            pd.Timestamp(date).tz_localize(None).normalize()
+            for date in coverage[coverage >= minimum].index
+        }
+        common_dates = complete if common_dates is None else common_dates & complete
+    if not common_dates:
+        raise RuntimeError("daily publication blocked: no complete common market session")
+    asof = max(common_dates)
+    cutoff = pd.Timestamp(cutoff).normalize()
+    lag = len(pd.bdate_range(asof, cutoff, inclusive="left")) if asof < cutoff else 0
+    if asof > cutoff or lag > config.MAX_PANIC_STALE_BUSINESS_DAYS:
+        raise RuntimeError(
+            f"daily publication blocked: latest complete market session {asof.date()} "
+            f"is outside the cutoff window ending {cutoff.date()}"
+        )
+    return asof
+
+
+def constituent_price_evidence(prices, tickers, asof) -> tuple[int, float]:
+    """Usable names and expected-universe coverage on the publication date."""
+    if prices.empty or not tickers:
+        return 0, 0.0
+    aligned = prices.reindex(columns=tickers)
+    dates = pd.DatetimeIndex(aligned.index)
+    if dates.tz is not None:
+        dates = dates.tz_convert(None)
+    rows = aligned.loc[dates.normalize() == pd.Timestamp(asof).normalize()]
+    count = int(rows.iloc[-1].notna().sum()) if not rows.empty else 0
+    return count, count / len(tickers) * 100
+
+
+def keep_validated_previous_reading(scores_path, timeline_path, market_asof, cutoff):
+    """No-session path: keep only a complete, internally aligned publication."""
+    try:
+        previous = json.loads(Path(scores_path).read_text(encoding="utf-8"))
+        timeline = json.loads(Path(timeline_path).read_text(encoding="utf-8"))
+        P.validate_public_timeline_pair(previous, timeline)
+    except Exception as error:
+        raise RuntimeError(
+            "daily publication blocked: no new complete market session and "
+            "the prior public reading is not valid"
+        ) from error
+    expected = pd.Timestamp(market_asof).strftime("%Y-%m-%d")
+    if previous["asof"] != expected:
+        raise RuntimeError(
+            "daily publication blocked: the latest complete market session "
+            "does not match the prior public reading"
+        )
+    print(
+        f"no new complete market session through {pd.Timestamp(cutoff).date()}; "
+        f"keeping validated {previous['asof']} reading"
+    )
 
 
 def build_entry_diagnostics(scope, idx_px, dgs10, snapshot):
@@ -68,7 +132,7 @@ def build_entry_diagnostics(scope, idx_px, dgs10, snapshot):
 
 def main():
     os.makedirs(config.DATA_DIR, exist_ok=True)
-    today = pd.Timestamp.today().normalize()
+    today = pd.Timestamp(datetime.now(timezone.utc).date())
     market_cutoff = completed_market_cutoff()
     raw_lookback = (config.PCTL_WINDOW_DAYS
                     + max(config.BREADTH_MA_DAYS, config.Z_LOOKBACK_DAYS)
@@ -94,6 +158,14 @@ def main():
                               market_cutoff)
         for scope in config.SCOPES
     }
+    market_asof = canonical_market_asof(index_px, member_px["mag7"], market_cutoff)
+    if market_asof != market_cutoff:
+        scores_path = Path(config.DATA_DIR) / "scores.json"
+        timeline_path = Path(config.DATA_DIR) / "timeline.json"
+        keep_validated_previous_reading(
+            scores_path, timeline_path, market_asof, market_cutoff
+        )
+        return
 
     credit_velocity = C.velocity_z(hy)
     panic_sp = {
@@ -112,24 +184,51 @@ def main():
     failures = []
     market_dates = set()
     for scope in config.SCOPES:
-        eps_snapshot = F.forward_eps_snapshot(scope)  # append today's estimates to history
+        price_count, price_coverage = constituent_price_evidence(
+            member_px[scope], members[scope], market_asof
+        )
+        minimum_price_coverage = (
+            config.MIN_MAG7_PRICE_COVERAGE if scope == "mag7"
+            else config.MIN_CONSTITUENT_PRICE_COVERAGE
+        )
+        if price_coverage < minimum_price_coverage * 100:
+            failures.append(
+                f"{scope}: constituent_price_coverage={price_coverage:.1f}% "
+                f"minimum={minimum_price_coverage * 100:.1f}%"
+            )
+            continue
+        eps_snapshot = F.forward_eps_snapshot(scope, market_asof)
         idx_px = (C.equal_weight_index(member_px[scope]) if scope == "mag7"
                   else index_px[config.INDEX_TICKER[scope]])
         raw_p = dict(panic_sp if scope == "sp500" else panic_ndx)
         if scope in ("sp500", "ndx100"):
-            raw_p["breadth"] = C.breadth_pct_above_ma(member_px[scope])
+            raw_p["breadth"] = C.breadth_pct_above_ma(
+                member_px[scope], expected_count=len(members[scope])
+            )
         else:
-            raw_p["pairwise_corr"] = C.pairwise_correlation(member_px[scope])
+            raw_p["pairwise_corr"] = C.downside_pairwise_correlation(
+                member_px[scope], expected_count=len(members[scope])
+            )
         pctl_p = S.score_components(raw_p, S.ORIENT_PANIC)
         panic = S.current_weighted_meter(
-            pctl_p, config.PANIC_WEIGHTS[scope], config.PANIC_PROVENANCE
+            pctl_p, config.PANIC_WEIGHTS[scope], config.PANIC_PROVENANCE,
+            expected_asof=market_asof,
         )
         fundamentals = S.fundamental_health(eps_snapshot)
-        if not panic["ready"] or fundamentals is None:
+        eps_aligned = (eps_snapshot.get("source_observation_date")
+                       == market_asof.strftime("%Y-%m-%d"))
+        constituents_aligned = (
+            eps_snapshot.get("constituent_hash") == F.constituent_hash(members[scope])
+            and eps_snapshot.get("n_constituents") == len(members[scope])
+        )
+        if (not panic["ready"] or fundamentals is None or not eps_aligned
+                or not constituents_aligned):
             failures.append(
                 f"{scope}: panic_ready={panic['ready']} "
                 f"panic_coverage={panic['coverage_pct']:.1f}% "
-                f"fundamentals_ready={fundamentals is not None}"
+                f"fundamentals_ready={fundamentals is not None} "
+                f"eps_aligned={eps_aligned} "
+                f"constituents_aligned={constituents_aligned}"
             )
             continue
         market_dates.add(panic["asof"])
@@ -186,6 +285,8 @@ def main():
                 "constituent_hash": eps_snapshot["constituent_hash"],
                 "constituent_count": eps_snapshot["n_constituents"],
                 "market_cap_proxy_count": eps_snapshot["n_market_cap_proxies"],
+                "constituent_price_count": price_count,
+                "constituent_price_coverage_pct": round(price_coverage, 1),
                 "eps_source": eps_snapshot["source"],
                 "eps_observation_date": eps_snapshot["source_observation_date"],
                 "panic_components": panic_quality,
@@ -199,8 +300,8 @@ def main():
         raise RuntimeError(f"daily publication blocked by mismatched market dates: "
                            f"{sorted(market_dates)}")
     asof = market_dates.pop()
-    if pd.Timestamp(asof) > market_cutoff:
-        raise RuntimeError("daily publication blocked before the US session is safely closed")
+    if pd.Timestamp(asof) != market_asof:
+        raise RuntimeError("daily publication blocked by a non-canonical market asof")
 
     path = os.path.join(config.DATA_DIR, "scores.json")
     public_payload = P.build_public_payload(out["scopes"], asof)
@@ -212,6 +313,7 @@ def main():
     timeline_payload = P.build_timeline_payload(previous_timeline, out["scopes"], asof)
     P.validate_public_payload(public_payload)
     P.validate_timeline_payload(timeline_payload)
+    P.validate_public_timeline_pair(public_payload, timeline_payload)
     P.write_public_payload(path, public_payload)
     P.write_timeline_payload(timeline_path, timeline_payload)
     print(f"wrote {path}")

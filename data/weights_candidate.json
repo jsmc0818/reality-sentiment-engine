@@ -1,0 +1,23 @@
+{
+  "promote": false,
+  "status": "exploratory_only",
+  "statistical_screen_passed": false,
+  "promotion_blockers": [
+    "constituent history uses current-membership backfill",
+    "Shiller earnings are current-vintage and revision-prone"
+  ],
+  "method": "train-only constrained top-250 median, rounded to 5pts",
+  "panic": {
+    "term_structure": 0.15,
+    "credit_velocity": 0.15,
+    "vvix": 0.15,
+    "breadth_sp500": 0.35,
+    "put_call": 0.2
+  },
+  "reality": {
+    "divergence_proxy": 0.1,
+    "erp_proxy": 0.4,
+    "sector_correlation": 0.1,
+    "quality_spread": 0.4
+  }
+}

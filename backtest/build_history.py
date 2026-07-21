@@ -1,11 +1,14 @@
-"""Build 10y of raw component history -> data/history.parquet
+"""Build raw history for an exploratory diagnostic -> data/history.parquet
 Run once: python -m backtest.build_history  (~10-20 min, mostly breadth prices)
 
 Backtest proxies (see README limitations):
-- Divergence: Shiller realized 12m earnings trend (revisions history isn't free)
+- Divergence: lagged, current-vintage Shiller realized 12m earnings trend
 - Valuation: index trailing PE from Shiller E; ERP uses earnings yield - DGS10
 - put/call from CBOE history where available
 - Forward returns: next available close through 63 trading sessions later
+
+Constituent histories use today's membership backfilled through time. This is
+survivorship-biased evidence and cannot approve production-weight changes.
 """
 
 import json
@@ -18,6 +21,7 @@ from pipeline import components as C
 from pipeline import fetchers as F
 
 START = "2015-01-01"
+SHILLER_PUBLICATION_LAG_MONTHS = 3
 
 
 def next_close_forward_return(series: pd.Series, sessions: int) -> pd.Series:
@@ -25,6 +29,12 @@ def next_close_forward_return(series: pd.Series, sessions: int) -> pd.Series:
     closes = series.dropna()
     result = closes.shift(-(sessions + 1)).div(closes.shift(-1)).sub(1)
     return result.reindex(series.index)
+
+
+def lag_monthly_publication(series: pd.Series,
+                            months: int = SHILLER_PUBLICATION_LAG_MONTHS) -> pd.Series:
+    """Move current-vintage monthly observations to a conservative availability date."""
+    return series.shift(months, freq="MS") if not series.empty else series
 
 
 def main():
@@ -57,7 +67,7 @@ def main():
     print("CBOE put/call...")
     pc = F.cboe_put_call()
     print("Shiller earnings (divergence proxy)...")
-    shiller_e = F.shiller_earnings()
+    shiller_e = lag_monthly_publication(F.shiller_earnings())
 
     spx = idx["^GSPC"]
     eps_daily = shiller_e.reindex(spx.index, method="ffill") if not shiller_e.empty else pd.Series(dtype=float)
@@ -96,9 +106,17 @@ def main():
 
     path = os.path.join(config.DATA_DIR, "history.parquet")
     df.to_parquet(path)
-    json.dump({"credit_velocity_series": credit_series,
-               "forward_return_execution": "next_available_close"},
-              open(os.path.join(config.DATA_DIR, "history_metadata.json"), "w"), indent=2)
+    metadata = {
+        "credit_velocity_series": credit_series,
+        "forward_return_execution": "next_available_close",
+        "shiller_publication_lag_months": SHILLER_PUBLICATION_LAG_MONTHS,
+        "shiller_vintage": "current_download",
+        "constituent_history": "current_membership_backfill",
+        "evidence_use": "exploratory_only",
+    }
+    with open(os.path.join(config.DATA_DIR, "history_metadata.json"), "w") as handle:
+        json.dump(metadata, handle, indent=2)
+        handle.write("\n")
     print(f"wrote {path}: {df.shape[0]} rows, {df.shape[1]} cols, "
           f"{df.index.min().date()} -> {df.index.max().date()}")
 

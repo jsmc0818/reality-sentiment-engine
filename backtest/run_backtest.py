@@ -1,4 +1,4 @@
-"""Robust weight estimation and validation.
+"""Exploratory historical weight diagnostic.
 
 Run: python -m backtest.run_backtest
 
@@ -9,11 +9,11 @@ The report deliberately separates three questions:
 3. Does that candidate still win when 2022-present is untouched and repeated
    days from one panic are counted as one independent 3-month research signal?
 
-Production weights are not changed automatically. A candidate is promotable
-only when it beats equal weights and the current production model on daily
-returns, enough independent entries, and a 63-day block-bootstrap confidence
-gate. This legacy proxy study does not validate the live Consensus Earnings
-Health metric or authorize an allocation action.
+This script can show whether a candidate clears a statistical comparison
+screen. It cannot promote weights from the current dataset because constituent
+history backfills today's members and Shiller earnings are current-vintage.
+This legacy proxy study does not validate the live Consensus Earnings Health
+metric, forecast the market, or authorize an allocation action.
 """
 
 import json
@@ -38,7 +38,8 @@ REALITY_COLS = {
     "divergence_proxy": +1,
     "erp_proxy": +1,
     "sector_correlation": +1,
-    "quality_spread": +1,
+    # Negative quality-minus-speculation returns mean indiscriminate selling.
+    "quality_spread": -1,
 }
 
 EPISODES = {
@@ -58,6 +59,7 @@ OPTIMIZER_BATCH = 1_000
 BOOTSTRAP_DRAWS = 5_000
 MIN_INDEPENDENT_ENTRIES = 10
 PROMOTION_CONFIDENCE = .90
+MIN_VALID_BOOTSTRAP_SHARE = .90
 
 
 def purged_training_mask(index, split, horizon=63, execution_lag=1):
@@ -235,10 +237,21 @@ def bootstrap_compare(panic_a, reality_a, panic_b, reality_b, target,
     common = frames[0].index.intersection(frames[1].index)
     frames = [frame.loc[common] for frame in frames]
     idx = np.arange(len(common))
+    empty = {
+        "hit_probability": 0.0,
+        "return_probability": 0.0,
+        "hit_ci": None,
+        "return_ci": None,
+        "valid_draws": 0,
+        "requested_draws": int(n),
+    }
+    if len(idx) < block:
+        return empty
     rng = np.random.default_rng(seed)
     diffs = []
     for _ in range(n):
-        starts = rng.integers(0, len(idx) - block, size=max(1, len(idx) // block))
+        starts = rng.integers(0, len(idx) - block + 1,
+                              size=max(1, len(idx) // block))
         take = np.concatenate([idx[s:s + block] for s in starts])
         values = []
         for frame in frames:
@@ -246,13 +259,19 @@ def bootstrap_compare(panic_a, reality_a, panic_b, reality_b, target,
             signal = sample[(sample.p >= config.PANIC_HIGH)
                             & (sample.r > config.LEGACY_REALITY_BROKEN)]
             values.append(((signal.fwd > 0).mean(), signal.fwd.mean()))
-        diffs.append((values[0][0] - values[1][0], values[0][1] - values[1][1]))
+        difference = (values[0][0] - values[1][0], values[0][1] - values[1][1])
+        if np.isfinite(difference).all():
+            diffs.append(difference)
+    if not diffs:
+        return empty
     diffs = np.asarray(diffs)
     return {
         "hit_probability": float((diffs[:, 0] > 0).mean()),
         "return_probability": float((diffs[:, 1] > 0).mean()),
         "hit_ci": np.percentile(diffs[:, 0] * 100, [2.5, 97.5]),
         "return_ci": np.percentile(diffs[:, 1] * 100, [2.5, 97.5]),
+        "valid_draws": int(len(diffs)),
+        "requested_draws": int(n),
     }
 
 
@@ -261,8 +280,22 @@ def _stats_row(name, stats, count_key):
             f"{stats['hit'] * 100:.0f}% |")
 
 
+def _bootstrap_row(name, comparison):
+    if not comparison["valid_draws"]:
+        return (f"| {name} | n/a | n/a | n/a | n/a | "
+                f"0 / {comparison['requested_draws']} |")
+    return (
+        f"| {name} | {comparison['hit_probability'] * 100:.0f}% | "
+        f"{comparison['return_probability'] * 100:.0f}% | "
+        f"[{comparison['hit_ci'][0]:+.1f}, {comparison['hit_ci'][1]:+.1f}] pts | "
+        f"[{comparison['return_ci'][0]:+.2f}, {comparison['return_ci'][1]:+.2f}] pts | "
+        f"{comparison['valid_draws']} / {comparison['requested_draws']} |"
+    )
+
+
 def passes_promotion_gate(daily, entries, comparison_equal, comparison_production,
                           minimum_entries=MIN_INDEPENDENT_ENTRIES):
+    """Statistical screen only; evidence quality is checked separately."""
     candidate_daily = daily["train-only candidate"]
     candidate_entries = entries["train-only candidate"]
     benchmarks = ("equal weight", "current production")
@@ -276,7 +309,21 @@ def passes_promotion_gate(daily, entries, comparison_equal, comparison_productio
         and comparison_equal["return_probability"] >= PROMOTION_CONFIDENCE
         and comparison_production["hit_probability"] >= PROMOTION_CONFIDENCE
         and comparison_production["return_probability"] >= PROMOTION_CONFIDENCE
+        and comparison_equal["valid_draws"]
+        >= comparison_equal["requested_draws"] * MIN_VALID_BOOTSTRAP_SHARE
+        and comparison_production["valid_draws"]
+        >= comparison_production["requested_draws"] * MIN_VALID_BOOTSTRAP_SHARE
     )
+
+
+def promotion_decision(statistical_pass, metadata):
+    """Block promotion unless both membership and fundamentals are point-in-time."""
+    blockers = []
+    if metadata.get("constituent_history") != "point_in_time":
+        blockers.append("constituent history uses current-membership backfill")
+    if metadata.get("shiller_vintage") != "point_in_time":
+        blockers.append("Shiller earnings are current-vintage and revision-prone")
+    return bool(statistical_pass and not blockers), blockers
 
 
 def main():
@@ -333,22 +380,30 @@ def main():
     comparison_production = bootstrap_compare(*scored["train-only candidate"],
                                                *scored["current production"], target)
 
-    promote = passes_promotion_gate(daily, entries, comparison_equal,
-                                    comparison_production)
+    statistical_pass = passes_promotion_gate(daily, entries, comparison_equal,
+                                             comparison_production)
+    promote, promotion_blockers = promotion_decision(statistical_pass, metadata)
+    blocker_text = "; ".join(promotion_blockers)
+    shiller_lag = metadata.get("shiller_publication_lag_months", "unknown")
 
     lines = [
-        "# Weight report: robust promotion audit\n",
+        "# Exploratory historical diagnostic: candidate-weight stress test\n",
+        ("Purpose: compare candidate behavior under historical proxies. This is not "
+         "a validated forecast, a live-model backtest, or a production-weight approval.\n"),
         ("Training signals: 2016 through the last date whose 63-session, next-close "
          "forward return ends before 2022. Validation: 2022-present, untouched by "
          "the optimizer."),
         "Legacy thresholds remain fixed at Panic >= 75 and proxy overlay > 35.\n",
-        "## Decision\n",
-        ("**PROMOTE the train-only research weights.**" if promote else
-         "**DO NOT PROMOTE the train-only research weights. Keep current production weights.**"),
+        "## Status\n",
+        "**EXPLORATORY ONLY. Production weights remain unchanged.**",
         "",
-        (f"The promotion gate requires at least {MIN_INDEPENDENT_ENTRIES} independent "
-         "entries, superiority on daily and independent-entry observations, and "
-         "90% block-bootstrap confidence versus both equal weight and current production.\n"),
+        (f"Statistical comparison screen: **{'passed' if statistical_pass else 'failed'}**. "
+         f"Production promotion is blocked because {blocker_text}.\n"),
+        "## Statistical comparison rule\n",
+        (f"The screen requires at least {MIN_INDEPENDENT_ENTRIES} independent entries, "
+         "superiority on daily and independent-entry observations, and 90% "
+         "block-bootstrap confidence versus both equal weight and current production. "
+         "Passing it is diagnostic evidence, not deployment authority.\n"),
         "## Panic diagnostics and weights\n",
         panic_table.round(3).to_markdown(),
         "\n## Legacy proxy-overlay diagnostics and weights\n",
@@ -371,16 +426,10 @@ def main():
 
     lines.extend([
         "\n## Block-bootstrap comparison\n",
-        "| candidate versus | P(hit rate is higher) | P(avg return is higher) | hit difference 95% CI | return difference 95% CI |",
-        "|---|---:|---:|---:|---:|",
-        (f"| equal weight | {comparison_equal['hit_probability'] * 100:.0f}% | "
-         f"{comparison_equal['return_probability'] * 100:.0f}% | "
-         f"[{comparison_equal['hit_ci'][0]:+.1f}, {comparison_equal['hit_ci'][1]:+.1f}] pts | "
-         f"[{comparison_equal['return_ci'][0]:+.2f}, {comparison_equal['return_ci'][1]:+.2f}] pts |"),
-        (f"| current production | {comparison_production['hit_probability'] * 100:.0f}% | "
-         f"{comparison_production['return_probability'] * 100:.0f}% | "
-         f"[{comparison_production['hit_ci'][0]:+.1f}, {comparison_production['hit_ci'][1]:+.1f}] pts | "
-         f"[{comparison_production['return_ci'][0]:+.2f}, {comparison_production['return_ci'][1]:+.2f}] pts |"),
+        "| candidate versus | P(hit rate is higher) | P(avg return is higher) | hit difference 95% CI | return difference 95% CI | valid / requested draws |",
+        "|---|---:|---:|---:|---:|---:|",
+        _bootstrap_row("equal weight", comparison_equal),
+        _bootstrap_row("current production", comparison_production),
         "\n## Episode readings, train-only candidate\n",
         "| episode | panic | proxy overlay |",
         "|---|---:|---:|",
@@ -397,14 +446,16 @@ def main():
     credit_note = metadata.get("credit_velocity_series", config.FRED_SERIES["hy_oas"])
     lines.extend([
         "\n## What is still missing for final optimization\n",
-        "1. Point-in-time historical forward EPS estimates and analyst revisions, not Shiller realized earnings.",
-        "2. A consistent historical HY OAS series matching the live signal, not the BAA10Y proxy.",
-        "3. More independent stress episodes. The current validation contains too few separate 3-month decisions.",
-        "4. A longer live forward-EPS snapshot history for every index scope.",
+        "1. Point-in-time index membership, not today's constituents backfilled through history.",
+        "2. Point-in-time historical forward EPS estimates and analyst revisions, not current-vintage Shiller realized earnings.",
+        "3. A consistent historical HY OAS series matching the live signal, not the BAA10Y proxy.",
+        "4. More independent stress episodes. The current diagnostic contains too few separate 3-month decisions.",
+        "5. A longer live forward-EPS snapshot history for every index scope.",
         "",
         ("Notes: IC confidence intervals use a 63-day block bootstrap. The joint optimizer "
          "uses training data only, constrained weights, top-candidate ensembling, and five-point "
-         "rounding. Divergence and ERP still use the Shiller realized-earnings proxy. "
+         f"rounding. Shiller observations use a conservative {shiller_lag}-month publication "
+         "lag, but the downloaded series remains revised current-vintage data. "
          f"Backtest credit velocity uses FRED {credit_note}; live scoring uses "
          f"{config.FRED_SERIES['hy_oas']}. This report is research-only and never an "
          "allocation instruction.")
@@ -415,6 +466,9 @@ def main():
         handle.write("\n".join(lines) + "\n")
     output = {
         "promote": bool(promote),
+        "status": "exploratory_only",
+        "statistical_screen_passed": bool(statistical_pass),
+        "promotion_blockers": promotion_blockers,
         "method": "train-only constrained top-250 median, rounded to 5pts",
         "panic": panic_candidate.round(4).to_dict(),
         "reality": reality_candidate.round(4).to_dict(),
@@ -425,7 +479,7 @@ def main():
         handle.write("\n")
     print(f"wrote {report}")
     print(json.dumps(output, indent=2))
-    print("production weights unchanged" if not promote else "candidate passed promotion gate")
+    print("production weights unchanged; candidate is exploratory only")
 
 
 if __name__ == "__main__":

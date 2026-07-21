@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -49,6 +50,55 @@ class FetcherTests(unittest.TestCase):
         self.assertEqual(
             _eps_trend_changes(trend)["analyst_eps_revision_30d_pct"], -50
         )
+
+    def test_tiny_eps_sign_crossing_uses_the_denominator_floor(self):
+        trend = pd.DataFrame(
+            {"current": [0.001], "30daysAgo": [-0.001]}, index=["+1y"]
+        )
+        self.assertAlmostEqual(
+            _eps_trend_changes(trend)["analyst_eps_revision_30d_pct"], 4.0
+        )
+
+    def test_partial_yahoo_download_preserves_missing_requested_names(self):
+        raw = pd.concat(
+            {"Close": pd.DataFrame(
+                {"AAA": [10.0]}, index=pd.to_datetime(["2026-07-20"])
+            )},
+            axis=1,
+        )
+        with patch.object(fetchers.yf, "download", return_value=raw):
+            prices = fetchers.yahoo_history(["AAA", "BBB"])
+        self.assertEqual(prices.columns.tolist(), ["AAA", "BBB"])
+        self.assertTrue(pd.isna(prices.loc[pd.Timestamp("2026-07-20"), "BBB"]))
+
+    def test_eps_snapshot_blocks_a_mixed_market_date_before_fetching(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(fetchers.config, "DATA_DIR", directory), \
+                patch.object(fetchers, "constituents") as constituents:
+            snapshot = fetchers.forward_eps_snapshot(
+                "sp500",
+                market_asof="2026-07-20",
+                now_utc=datetime(2026, 7, 21, 12, tzinfo=timezone.utc),
+            )
+        self.assertEqual(snapshot, {})
+        constituents.assert_not_called()
+
+    def test_eps_snapshot_reuses_an_aligned_stored_observation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pd.DataFrame([{
+                "asof": "2026-07-20",
+                "source_observation_date": "2026-07-20",
+                "n_analyst_trends": 10,
+            }]).to_csv(f"{directory}/eps_history_sp500.csv", index=False)
+            with patch.object(fetchers.config, "DATA_DIR", directory), \
+                    patch.object(fetchers, "constituents") as constituents:
+                snapshot = fetchers.forward_eps_snapshot(
+                    "sp500",
+                    market_asof="2026-07-20",
+                    now_utc=datetime(2026, 7, 21, 12, tzinfo=timezone.utc),
+                )
+        self.assertEqual(snapshot["source_observation_date"], "2026-07-20")
+        constituents.assert_not_called()
 
     def test_eps_trends_do_not_require_positive_forward_pe(self):
         tickers = ["AAA", "MSFT", "NVDA"]

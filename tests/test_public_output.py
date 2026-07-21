@@ -10,6 +10,7 @@ from pipeline.fetchers import _safe_error
 from pipeline.public_output import (
     build_timeline_payload,
     validate_public_payload,
+    validate_public_timeline_pair,
     validate_timeline_payload,
     write_public_payload,
     write_timeline_payload,
@@ -37,6 +38,27 @@ class PublicOutputTests(unittest.TestCase):
             with self.subTest(private_key=private_key), self.assertRaises(ValueError):
                 validate_public_payload(invalid)
 
+    def test_headline_panic_must_recompute_from_published_components(self):
+        invalid = copy.deepcopy(self.payload)
+        invalid["scopes"]["sp500"]["panic"] += 1
+        invalid["scopes"]["sp500"]["fundamental_discrepancy"] += 1
+        with self.assertRaises(ValueError):
+            validate_public_payload(invalid)
+
+    def test_eps_observation_date_must_match_market_asof(self):
+        invalid = copy.deepcopy(self.payload)
+        invalid["scopes"]["sp500"]["data_quality"]["eps_observation_date"] = (
+            "2026-01-01"
+        )
+        with self.assertRaises(ValueError):
+            validate_public_payload(invalid)
+
+    def test_constituent_price_coverage_cannot_be_overstated(self):
+        invalid = copy.deepcopy(self.payload)
+        invalid["scopes"]["mag7"]["data_quality"]["constituent_price_count"] = 2
+        with self.assertRaises(ValueError):
+            validate_public_payload(invalid)
+
     def test_invalid_update_preserves_last_good_file(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "scores.json"
@@ -59,6 +81,18 @@ class PublicOutputTests(unittest.TestCase):
         timeline["scopes"]["sp500"][0]["fundamental_discrepancy"] += 1
         with self.assertRaises(ValueError):
             validate_timeline_payload(timeline)
+
+    def test_timeline_must_end_at_the_published_reading(self):
+        timeline = build_timeline_payload(None, self.payload["scopes"], self.payload["asof"])
+        timeline["scopes"]["sp500"][-1]["date"] = "2026-07-17"
+        with self.assertRaises(ValueError):
+            validate_public_timeline_pair(self.payload, timeline)
+
+    def test_timeline_values_must_match_the_published_reading(self):
+        timeline = build_timeline_payload(None, self.payload["scopes"], self.payload["asof"])
+        timeline["scopes"]["ndx100"][-1]["panic"] -= 1
+        with self.assertRaises(ValueError):
+            validate_public_timeline_pair(self.payload, timeline)
 
     def test_invalid_timeline_preserves_last_good_file(self):
         timeline = build_timeline_payload(None, self.payload["scopes"], self.payload["asof"])

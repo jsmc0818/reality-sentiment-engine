@@ -14,8 +14,8 @@ const LABEL_OFFSETS = { sp500: -5, ndx100: -6, mag7: 5 };
 
 const PANIC_WEIGHTS = {
   sp500: { term_structure: 25, credit_velocity: 22, vvix: 20, breadth: 18, put_call: 15 },
-  ndx100: { vxn_ratio: 25, vxn_level: 20, credit_velocity: 22, breadth: 18, put_call: 15 },
-  mag7: { vxn_ratio: 25, vxn_level: 20, credit_velocity: 22, pairwise_corr: 18, put_call: 15 },
+  ndx100: { vxn_ratio: 15, vxn_level: 15, credit_velocity: 25, breadth: 25, put_call: 20 },
+  mag7: { vxn_ratio: 15, vxn_level: 15, credit_velocity: 25, pairwise_corr: 25, put_call: 20 },
 };
 
 const FUNDAMENTALS_WEIGHTS = { revision_score: 60, revision_breadth: 40 };
