@@ -48,10 +48,13 @@ MIN_ANALYST_TRENDS = 5         # minimum constituent trends for a fundamentals r
 MIN_ANALYST_TREND_COVERAGE = .70  # common cohort / targeted analyst cohort
 MIN_ANALYST_MARKET_CAP_COVERAGE = .40  # common cohort / full scope proxy weight
 MIN_MARKET_CAP_PROXY_NAME_COVERAGE = .90
+MIN_CONSTITUENT_PRICE_COVERAGE = .90
+MIN_MAG7_PRICE_COVERAGE = 1.0
 EPS_REVISION_DEADBAND_PCT = .25
 EPS_REVISION_CAP_PCT = 50.0
 EPS_SCALE_FLOOR = .05
 MAX_PANIC_STALE_BUSINESS_DAYS = 2
+MAX_PUBLICATION_STALE_BUSINESS_DAYS = 1
 MIN_PANIC_COMPONENT_COVERAGE = 1.0
 
 PANIC_PROVENANCE = {
@@ -62,7 +65,7 @@ PANIC_PROVENANCE = {
     "put_call": "Cboe Equity Put/Call Ratio",
     "vxn_ratio": "Yahoo Finance adjusted close (^VXN / ^VIX)",
     "vxn_level": "Yahoo Finance adjusted close (^VXN)",
-    "pairwise_corr": "Yahoo Finance Magnificent Seven adjusted closes",
+    "pairwise_corr": "Yahoo Finance Magnificent Seven downside-return correlations",
 }
 
 # ---------------------------------------------------------------- launch weights
@@ -71,11 +74,11 @@ PANIC_WEIGHTS = {
     "sp500":  {"term_structure": .25, "credit_velocity": .22, "vvix": .20,
                "breadth": .18, "put_call": .15},
     # no VXN9D/VXN3M exist -> vxn_ratio (VXN/VIX) replaces term structure
-    "ndx100": {"vxn_ratio": .25, "vxn_level": .20, "credit_velocity": .22,
-               "breadth": .18, "put_call": .15},
+    "ndx100": {"vxn_ratio": .15, "vxn_level": .15, "credit_velocity": .25,
+               "breadth": .25, "put_call": .20},
     # breadth is meaningless with seven names -> pairwise correlation
-    "mag7":   {"vxn_ratio": .25, "vxn_level": .20, "credit_velocity": .22,
-               "pairwise_corr": .18, "put_call": .15},
+    "mag7":   {"vxn_ratio": .15, "vxn_level": .15, "credit_velocity": .25,
+               "pairwise_corr": .25, "put_call": .20},
 }
 
 # Legacy historical-entry backtest only. These proxies are not Fundamentals.
@@ -87,6 +90,7 @@ LEGACY_REALITY_WEIGHTS = {
 
 # Decision thresholds (0-100)
 PANIC_HIGH = 75
+PANIC_WATCH = 67
 FUNDAMENTALS_HEALTHY = 60
 FUNDAMENTALS_BROKEN = 40
 LEGACY_REALITY_BROKEN = 35      # historical proxy-overlay backtest only

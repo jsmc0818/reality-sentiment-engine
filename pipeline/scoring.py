@@ -19,7 +19,8 @@ def rolling_percentile(s: pd.Series,
                        window: int = config.PCTL_WINDOW_DAYS) -> pd.Series:
     """Percentile versus up to five years, after one full year of evidence."""
     def pct(x):
-        return (x[:-1] <= x[-1]).mean() * 100
+        prior = x[:-1]
+        return ((prior < x[-1]).sum() + .5 * (prior == x[-1]).sum()) / len(prior) * 100
     minimum = min(window, config.MIN_PCTL_OBSERVATIONS)
     return s.dropna().rolling(window, min_periods=minimum).apply(pct, raw=True)
 
@@ -52,7 +53,8 @@ def weighted_meter(pctls: pd.DataFrame, weights: dict,
 
 
 def current_weighted_meter(pctls: pd.DataFrame, weights: dict,
-                           provenance: dict | None = None) -> dict:
+                           provenance: dict | None = None,
+                           expected_asof=None) -> dict:
     """Latest fixed-weight reading at one as-of, with explicit freshness evidence."""
     provenance = provenance or {}
     w = pd.Series(weights, dtype=float)
@@ -68,7 +70,8 @@ def current_weighted_meter(pctls: pd.DataFrame, weights: dict,
         return {"score": None, "asof": None, "coverage_pct": 0,
                 "ready": False, "components": {}}
 
-    asof = max(latest.values()).normalize()
+    asof = (pd.Timestamp(expected_asof).tz_localize(None).normalize()
+            if expected_asof is not None else max(latest.values()).normalize())
     coverage = 0.0
     score = 0.0
     statuses = {}
@@ -148,6 +151,7 @@ def fundamental_discrepancy(panic: float, fundamentals: float) -> float:
 
 def quadrant(panic: float, fundamentals: float) -> dict:
     hot = panic >= config.PANIC_HIGH
+    near = panic >= config.PANIC_WATCH
     healthy = fundamentals >= config.FUNDAMENTALS_HEALTHY
     broken = fundamentals <= config.FUNDAMENTALS_BROKEN
     if hot and healthy:
@@ -156,6 +160,8 @@ def quadrant(panic: float, fundamentals: float) -> dict:
         code, label = "fire", "REAL FIRE: fundamentals breaking, respect it"
     elif hot:
         code, label = "watch", "WATCH: panic is high, fundamentals are mixed"
+    elif near:
+        code, label = "watch", "WATCH: stress is near the dislocation threshold"
     elif not hot and broken:
         code, label = "trap", "COMPLACENCY TRAP: calm surface, deteriorating floor"
     else:
@@ -176,8 +182,8 @@ def verdict(panic: float, fundamentals: float, discrepancy: float) -> str:
                 "deteriorating; treat this as a research warning.")
     if q == "watch":
         return (f"Panic {panic:.0f} / Consensus Earnings Health {fundamentals:.0f}. "
-                "Stress is elevated, but earnings evidence is mixed. Wait for "
-                "revision direction and breadth to agree.")
+                "Stress is elevated or nearing the dislocation threshold. "
+                "Confirm valuation, revision direction, and breadth before acting.")
     if q == "trap":
         return (f"Panic {panic:.0f} / Consensus Earnings Health "
                 f"{fundamentals:.0f}. Calm prices and weak revisions warrant "

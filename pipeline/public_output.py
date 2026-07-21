@@ -4,7 +4,7 @@ import json
 import math
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import config
@@ -12,7 +12,7 @@ import config
 
 REFRESH_POLICY = {
     "mode": "scheduled_static_publication",
-    "stale_after_business_days": 2,
+    "stale_after_business_days": config.MAX_PUBLICATION_STALE_BUSINESS_DAYS,
     "schedule": "weekdays_after_us_close",
 }
 TIMELINE_SCHEMA_VERSION = 1
@@ -51,6 +51,7 @@ COMPONENT_KEYS = {
 }
 DATA_QUALITY_KEYS = {
     "constituent_hash", "constituent_count", "market_cap_proxy_count",
+    "constituent_price_count", "constituent_price_coverage_pct",
     "eps_source", "eps_observation_date", "panic_components",
 }
 PANIC_QUALITY_KEYS = {
@@ -107,10 +108,20 @@ def _number(value, location, low=0, high=100):
         raise ValueError(f"{location} must be a finite number in [{low}, {high}]")
 
 
+def _business_days_between(start, end) -> int:
+    count = 0
+    day = start
+    while day < end:
+        if day.weekday() < 5:
+            count += 1
+        day += timedelta(days=1)
+    return count
+
+
 def validate_public_payload(payload: dict) -> None:
     """Strict allowlists keep personal data and arbitrary API output out."""
     _keys(payload, {"asof", "generated_at_utc", "refresh_policy", "scopes"}, "root")
-    datetime.strptime(payload["asof"], "%Y-%m-%d")
+    asof_date = datetime.strptime(payload["asof"], "%Y-%m-%d").date()
     datetime.fromisoformat(payload["generated_at_utc"].replace("Z", "+00:00"))
     if payload["refresh_policy"] != REFRESH_POLICY:
         raise ValueError("refresh policy is not approved")
@@ -159,10 +170,12 @@ def validate_public_payload(payload: dict) -> None:
         if not isinstance(quadrant["label"], str):
             raise ValueError(f"{scope}.quadrant label must be text")
         hot = reading["panic"] >= config.PANIC_HIGH
+        near = reading["panic"] >= config.PANIC_WATCH
         healthy = reading["fundamentals"] >= config.FUNDAMENTALS_HEALTHY
         broken = reading["fundamentals"] <= config.FUNDAMENTALS_BROKEN
         expected_quadrant = ("golden" if hot and healthy else "fire" if hot and broken
-                             else "watch" if hot else "trap" if broken else "normal")
+                             else "watch" if hot or near
+                             else "trap" if broken else "normal")
         if quadrant["code"] != expected_quadrant:
             raise ValueError(f"{scope}.quadrant is inconsistent with the scores")
 
@@ -189,6 +202,14 @@ def validate_public_payload(payload: dict) -> None:
         if abs(analyst["analyst_eps_revision_breadth_30d_pct"]
                - expected_breadth) > .11:
             raise ValueError(f"{scope}.analyst revision breadth is inconsistent")
+        if analyst["n_analyst_trends"] < config.MIN_ANALYST_TRENDS:
+            raise ValueError(f"{scope}.analyst trend count is below the gate")
+        if (analyst["analyst_eps_common_coverage_pct"]
+                < config.MIN_ANALYST_MARKET_CAP_COVERAGE * 100):
+            raise ValueError(f"{scope}.analyst market-cap coverage is below the gate")
+        if (analyst["analyst_eps_common_cohort_pct"]
+                < config.MIN_ANALYST_TREND_COVERAGE * 100):
+            raise ValueError(f"{scope}.analyst cohort coverage is below the gate")
 
         components = reading["components"]
         _keys(components, COMPONENT_KEYS, f"{scope}.components")
@@ -203,6 +224,18 @@ def validate_public_payload(payload: dict) -> None:
                     _number(value, f"{scope}.{group}.{key}", low, high)
                 else:
                     _number(value, f"{scope}.{group}.{key}")
+        expected_panic = sum(
+            components["panic"][name] * weight
+            for name, weight in config.PANIC_WEIGHTS[scope].items()
+        )
+        if abs(reading["panic"] - expected_panic) > .11:
+            raise ValueError(f"{scope}.panic is inconsistent with its components")
+        expected_fundamentals = (
+            .60 * components["fundamentals"]["revision_score"]
+            + .40 * components["fundamentals"]["revision_breadth"]
+        )
+        if abs(reading["fundamentals"] - expected_fundamentals) > .11:
+            raise ValueError(f"{scope}.fundamentals is inconsistent with its components")
 
         quality = reading["data_quality"]
         _keys(quality, DATA_QUALITY_KEYS, f"{scope}.data_quality")
@@ -212,9 +245,35 @@ def validate_public_payload(payload: dict) -> None:
         _number(quality["constituent_count"], f"{scope}.constituent count", 1, 1000)
         _number(quality["market_cap_proxy_count"],
                 f"{scope}.market cap proxy count", 1, quality["constituent_count"])
+        if (quality["market_cap_proxy_count"] / quality["constituent_count"]
+                < config.MIN_MARKET_CAP_PROXY_NAME_COVERAGE):
+            raise ValueError(f"{scope}.market cap proxy coverage is below the gate")
+        _number(quality["constituent_price_count"],
+                f"{scope}.constituent price count", 1, quality["constituent_count"])
+        _number(quality["constituent_price_coverage_pct"],
+                f"{scope}.constituent price coverage")
+        expected_price_coverage = (
+            quality["constituent_price_count"] / quality["constituent_count"] * 100
+        )
+        if abs(quality["constituent_price_coverage_pct"]
+               - expected_price_coverage) > .11:
+            raise ValueError(f"{scope}.constituent price coverage is inconsistent")
+        minimum_price_coverage = (
+            config.MIN_MAG7_PRICE_COVERAGE if scope == "mag7"
+            else config.MIN_CONSTITUENT_PRICE_COVERAGE
+        )
+        if quality["constituent_price_coverage_pct"] < minimum_price_coverage * 100:
+            raise ValueError(f"{scope}.constituent price coverage is below the gate")
         if not isinstance(quality["eps_source"], str) or not quality["eps_source"].strip():
             raise ValueError(f"{scope}.eps_source must be text")
-        datetime.strptime(quality["eps_observation_date"], "%Y-%m-%d")
+        expected_eps_source = (
+            f"yfinance_market_cap_proxy_ranked_{quality['constituent_hash'][:12]}"
+        )
+        if quality["eps_source"] != expected_eps_source:
+            raise ValueError(f"{scope}.eps_source does not match the constituent set")
+        eps_date = datetime.strptime(quality["eps_observation_date"], "%Y-%m-%d").date()
+        if eps_date != asof_date:
+            raise ValueError(f"{scope}.eps_observation_date must match the public asof")
         _keys(quality["panic_components"], config.PANIC_WEIGHTS[scope],
               f"{scope}.panic quality")
         total_weight = 0.0
@@ -223,11 +282,20 @@ def validate_public_payload(payload: dict) -> None:
             _keys(status, PANIC_QUALITY_KEYS, location)
             if not isinstance(status["source"], str) or not status["source"].strip():
                 raise ValueError(f"{location}.source must be text")
-            datetime.strptime(status["observation_date"], "%Y-%m-%d")
+            observation_date = datetime.strptime(
+                status["observation_date"], "%Y-%m-%d"
+            ).date()
+            if observation_date > asof_date:
+                raise ValueError(f"{location}.observation_date is after the public asof")
             _number(status["stale_business_days"], f"{location}.staleness",
                     0, config.MAX_PANIC_STALE_BUSINESS_DAYS)
+            expected_staleness = _business_days_between(observation_date, asof_date)
+            if status["stale_business_days"] != expected_staleness:
+                raise ValueError(f"{location}.staleness is inconsistent")
             if status["fresh"] is not True:
                 raise ValueError(f"{location} must be fresh for publication")
+            if status["source"] != config.PANIC_PROVENANCE[component]:
+                raise ValueError(f"{location}.source is not approved")
             _number(status["weight_pct"], f"{location}.weight")
             expected_weight = config.PANIC_WEIGHTS[scope][component] * 100
             if abs(status["weight_pct"] - expected_weight) > .11:
@@ -268,6 +336,20 @@ def validate_timeline_payload(payload: dict) -> None:
             raise ValueError(f"timeline.{scope} dates must be unique and ordered")
 
 
+def validate_public_timeline_pair(public: dict, timeline: dict) -> None:
+    """Require the chart history to end at the exact published reading."""
+    validate_public_payload(public)
+    validate_timeline_payload(timeline)
+    for scope in config.SCOPES:
+        latest = timeline["scopes"][scope][-1]
+        reading = public["scopes"][scope]
+        if latest["date"] != public["asof"]:
+            raise ValueError(f"timeline.{scope} does not end at the public asof")
+        for key in ("panic", "fundamentals", "fundamental_discrepancy"):
+            if abs(latest[key] - reading[key]) > .11:
+                raise ValueError(f"timeline.{scope}.{key} does not match public data")
+
+
 def write_public_payload(path, payload) -> None:
     """A rejected or interrupted update leaves the prior file untouched."""
     validate_public_payload(payload)
@@ -302,9 +384,12 @@ def main() -> None:
         raise SystemExit(
             "usage: python -m pipeline.public_output data/scores.json [data/timeline.json]"
         )
-    validate_public_payload(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")))
+    public = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     if len(sys.argv) == 3:
-        validate_timeline_payload(json.loads(Path(sys.argv[2]).read_text(encoding="utf-8")))
+        timeline = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+        validate_public_timeline_pair(public, timeline)
+    else:
+        validate_public_payload(public)
     print(f"validated public market-data contract: {' '.join(sys.argv[1:])}")
 
 

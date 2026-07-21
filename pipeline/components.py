@@ -32,24 +32,78 @@ def vxn_ratio(vxn: pd.Series, vix: pd.Series) -> pd.Series:
     return (vxn / vix).dropna()
 
 
-def breadth_pct_above_ma(prices: pd.DataFrame,
-                         ma_days: int = config.BREADTH_MA_DAYS) -> pd.Series:
+def price_coverage(prices: pd.DataFrame, expected_count: int | None = None) -> pd.Series:
+    """Share of the requested universe with a usable close on each date."""
+    expected = expected_count if expected_count is not None else len(prices.columns)
+    if prices.empty or expected <= 0:
+        return pd.Series(dtype=float)
+    return prices.notna().sum(axis=1).clip(upper=expected) / expected
+
+
+def breadth_pct_above_ma(
+    prices: pd.DataFrame,
+    ma_days: int = config.BREADTH_MA_DAYS,
+    expected_count: int | None = None,
+    min_coverage: float = config.MIN_CONSTITUENT_PRICE_COVERAGE,
+) -> pd.Series:
+    """Percent above the MA, available only with broad-universe coverage."""
+    expected = expected_count if expected_count is not None else len(prices.columns)
+    if prices.empty or expected <= 0:
+        return pd.Series(dtype=float)
     ma = prices.rolling(ma_days, min_periods=int(ma_days * .8)).mean()
     eligible = prices.notna() & ma.notna()
     denominator = eligible.sum(axis=1).replace(0, np.nan)
-    return ((prices.gt(ma) & eligible).sum(axis=1) / denominator * 100).dropna()
+    coverage = denominator / expected
+    breadth = (prices.gt(ma) & eligible).sum(axis=1) / denominator * 100
+    return breadth.where(coverage >= min_coverage).dropna()
 
 
-def pairwise_correlation(prices: pd.DataFrame,
-                         window: int = config.CORR_WINDOW_DAYS) -> pd.Series:
-    """Average pairwise correlation used as the Mag7 breadth substitute."""
+def pairwise_correlation(
+    prices: pd.DataFrame,
+    window: int = config.CORR_WINDOW_DAYS,
+    expected_count: int | None = None,
+    min_coverage: float = config.MIN_CONSTITUENT_PRICE_COVERAGE,
+) -> pd.Series:
+    """Average pairwise correlation after an expected-universe coverage gate."""
+    expected = expected_count if expected_count is not None else len(prices.columns)
+    required = int(np.ceil(expected * min_coverage))
+    if prices.empty or expected < 2 or len(prices.columns) < required:
+        return pd.Series(dtype=float)
     rets = prices.pct_change(fill_method=None)
     out = {}
     for end in range(window, len(rets)):
-        c = rets.iloc[end - window + 1:end + 1].corr().values
+        price_window = prices.iloc[end - window:end + 1]
+        if (price_coverage(price_window, expected) < min_coverage).any():
+            continue
+        return_window = rets.iloc[end - window + 1:end + 1]
+        complete = return_window.columns[return_window.notna().all(axis=0)]
+        if len(complete) < required:
+            continue
+        c = return_window[complete].corr().values
         iu = np.triu_indices_from(c, k=1)
-        out[rets.index[end]] = np.nanmean(c[iu])
-    return pd.Series(out)
+        pairs = c[iu]
+        if np.isfinite(pairs).all():
+            out[rets.index[end]] = float(pairs.mean())
+    return pd.Series(out, dtype=float)
+
+
+def downside_pairwise_correlation(
+    prices: pd.DataFrame,
+    window: int = config.CORR_WINDOW_DAYS,
+    expected_count: int | None = None,
+    min_coverage: float = config.MIN_MAG7_PRICE_COVERAGE,
+) -> pd.Series:
+    """Correlation counts as panic only while the equal-weight basket is down."""
+    corr = pairwise_correlation(
+        prices,
+        window=window,
+        expected_count=expected_count,
+        min_coverage=min_coverage,
+    )
+    if corr.empty:
+        return corr
+    basket_return = equal_weight_index(prices).pct_change(window)
+    return corr.where(basket_return.reindex(corr.index) < 0, 0.0)
 
 
 def equal_weight_index(prices: pd.DataFrame) -> pd.Series:

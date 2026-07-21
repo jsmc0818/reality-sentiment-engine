@@ -25,7 +25,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check public market data
         run: python -m pipeline.public_output data/scores.json data/timeline.json
       - name: Check website data bindings
@@ -39,7 +39,7 @@ jobs:
           cp data/scores.json data/timeline.json _site/data/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
       - name: Publish

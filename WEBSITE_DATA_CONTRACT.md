@@ -13,6 +13,10 @@ scopes: `sp500`, `ndx100`, and `mag7`. The allowed fields are enforced by
 `pipeline/public_output.py`. A new, missing, or unknown field causes the update
 to fail while the prior valid file remains available.
 
+The two files are one publication unit. Every scope's final timeline date and
+three headline values must equal the current score file. A valid but lagging or
+conflicting timeline blocks publication.
+
 Each scope publishes `panic`, `fundamentals`, and `fundamental_discrepancy`.
 The schema name `fundamentals` means Consensus Earnings Health and is retained
 for compatibility. It contains only direct EPS revision magnitude and revision breadth.
@@ -84,15 +88,26 @@ date range. There is no public refresh endpoint and no update-button workflow.
 ```json
 {
   "mode": "scheduled_static_publication",
-  "stale_after_business_days": 2,
+  "stale_after_business_days": 1,
   "schedule": "weekdays_after_us_close"
 }
 ```
 
 The fixed daily workflow publishes after the US close on weekdays. Page loads
-display the last validated static files. If data exceeds the stated business-day
-staleness limit, the website may warn that it is stale, but it must not silently
-substitute partial or newly reweighted data.
+display the last validated static files. Freshness is measured against the latest
+completed session, using 21:00 UTC as the conservative close cutoff. If data exceeds
+one completed business session, the website must withhold the live readings. It must
+not silently substitute partial or newly reweighted data.
+
+On a market holiday or another recent no-session date, the workflow may keep the
+previous files only when both files validate, agree with each other, and match the
+latest complete common index and Mag7 session. Otherwise it fails closed.
+
+Each published scope also carries fixed data-quality evidence. Broad constituent
+prices and market-cap proxies require at least 90% expected-name coverage, Mag7
+prices require 100%, Panic components must remain inside their approved source-age
+limits, and the EPS observation date plus constituent hash must match the market
+session and current membership used by the price panel.
 
 There is no endpoint that accepts arbitrary tickers, FRED series, URLs, Python,
 shell commands, prompts, or personal questions.

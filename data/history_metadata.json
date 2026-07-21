@@ -1,0 +1,8 @@
+{
+  "credit_velocity_series": "BAA10Y",
+  "forward_return_execution": "next_available_close",
+  "shiller_publication_lag_months": 3,
+  "shiller_vintage": "current_download",
+  "constituent_history": "current_membership_backfill",
+  "evidence_use": "exploratory_only"
+}
