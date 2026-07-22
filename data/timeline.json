@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-07-21T22:29:57+00:00",
+  "generated_at_utc": "2026-07-22T22:37:34+00:00",
   "methodology_start": "2026-07-15",
   "scopes": {
     "sp500": [
@@ -27,6 +27,12 @@
         "panic": 48.2,
         "fundamentals": 82.3,
         "fundamental_discrepancy": 30.5
+      },
+      {
+        "date": "2026-07-22",
+        "panic": 48.5,
+        "fundamentals": 83.3,
+        "fundamental_discrepancy": 31.8
       }
     ],
     "ndx100": [
@@ -53,6 +59,12 @@
         "panic": 66.8,
         "fundamentals": 85.5,
         "fundamental_discrepancy": 52.3
+      },
+      {
+        "date": "2026-07-22",
+        "panic": 71.3,
+        "fundamentals": 86.5,
+        "fundamental_discrepancy": 57.8
       }
     ],
     "mag7": [
@@ -79,6 +91,12 @@
         "panic": 58.8,
         "fundamentals": 72.9,
         "fundamental_discrepancy": 31.7
+      },
+      {
+        "date": "2026-07-22",
+        "panic": 62.9,
+        "fundamentals": 76.2,
+        "fundamental_discrepancy": 39.1
       }
     ]
   }
