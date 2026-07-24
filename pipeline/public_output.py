@@ -165,17 +165,14 @@ def validate_public_payload(payload: dict) -> None:
 
         quadrant = reading["quadrant"]
         _keys(quadrant, {"code", "label"}, f"{scope}.quadrant")
-        if quadrant["code"] not in {"golden", "fire", "watch", "trap", "normal"}:
+        if quadrant["code"] not in {"golden", "fire", "trap", "normal"}:
             raise ValueError(f"{scope}.quadrant code is invalid")
         if not isinstance(quadrant["label"], str):
             raise ValueError(f"{scope}.quadrant label must be text")
         hot = reading["panic"] >= config.PANIC_HIGH
-        near = reading["panic"] >= config.PANIC_WATCH
-        healthy = reading["fundamentals"] >= config.FUNDAMENTALS_HEALTHY
-        broken = reading["fundamentals"] <= config.FUNDAMENTALS_BROKEN
-        expected_quadrant = ("golden" if hot and healthy else "fire" if hot and broken
-                             else "watch" if hot or near
-                             else "trap" if broken else "normal")
+        healthy = reading["fundamentals"] >= config.FUNDAMENTALS_SPLIT
+        expected_quadrant = ("golden" if hot and healthy else "fire" if hot
+                             else "normal" if healthy else "trap")
         if quadrant["code"] != expected_quadrant:
             raise ValueError(f"{scope}.quadrant is inconsistent with the scores")
 

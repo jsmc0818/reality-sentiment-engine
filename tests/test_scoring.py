@@ -130,12 +130,11 @@ class ScoringTests(unittest.TestCase):
         self.assertFalse(result["ready"])
         self.assertEqual(result["asof"], "2026-07-21")
 
-    def test_high_panic_with_mixed_fundamentals_is_watch_not_golden(self):
-        self.assertEqual(quadrant(80, 50)["code"], "watch")
-
-    def test_near_threshold_panic_is_watch(self):
-        self.assertEqual(quadrant(74.3, 84.2)["code"], "watch")
-        self.assertEqual(quadrant(69.8, 85.1)["code"], "watch")
+    def test_quadrant_is_a_true_two_by_two(self):
+        self.assertEqual(quadrant(75, 50)["code"], "golden")
+        self.assertEqual(quadrant(75, 49.9)["code"], "fire")
+        self.assertEqual(quadrant(74.9, 50)["code"], "normal")
+        self.assertEqual(quadrant(74.9, 49.9)["code"], "trap")
 
 
 if __name__ == "__main__":

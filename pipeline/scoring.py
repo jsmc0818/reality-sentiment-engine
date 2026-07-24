@@ -151,18 +151,12 @@ def fundamental_discrepancy(panic: float, fundamentals: float) -> float:
 
 def quadrant(panic: float, fundamentals: float) -> dict:
     hot = panic >= config.PANIC_HIGH
-    near = panic >= config.PANIC_WATCH
-    healthy = fundamentals >= config.FUNDAMENTALS_HEALTHY
-    broken = fundamentals <= config.FUNDAMENTALS_BROKEN
+    healthy = fundamentals >= config.FUNDAMENTALS_SPLIT
     if hot and healthy:
         code, label = "golden", "CANDIDATE DISLOCATION: fear exceeds earnings damage"
-    elif hot and broken:
-        code, label = "fire", "REAL FIRE: fundamentals breaking, respect it"
     elif hot:
-        code, label = "watch", "WATCH: panic is high, fundamentals are mixed"
-    elif near:
-        code, label = "watch", "WATCH: stress is near the dislocation threshold"
-    elif not hot and broken:
+        code, label = "fire", "REAL FIRE: fundamentals breaking, respect it"
+    elif not healthy:
         code, label = "trap", "COMPLACENCY TRAP: calm surface, deteriorating floor"
     else:
         code, label = "normal", "NORMAL: no edge from sentiment, do bottom-up work"
@@ -180,10 +174,6 @@ def verdict(panic: float, fundamentals: float, discrepancy: float) -> str:
         return (f"Panic {panic:.0f} / Consensus Earnings Health "
                 f"{fundamentals:.0f}. EPS revisions and breadth are "
                 "deteriorating; treat this as a research warning.")
-    if q == "watch":
-        return (f"Panic {panic:.0f} / Consensus Earnings Health {fundamentals:.0f}. "
-                "Stress is elevated or nearing the dislocation threshold. "
-                "Confirm valuation, revision direction, and breadth before acting.")
     if q == "trap":
         return (f"Panic {panic:.0f} / Consensus Earnings Health "
                 f"{fundamentals:.0f}. Calm prices and weak revisions warrant "
