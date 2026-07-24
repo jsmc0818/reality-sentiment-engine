@@ -90,9 +90,7 @@ LEGACY_REALITY_WEIGHTS = {
 
 # Decision thresholds (0-100)
 PANIC_HIGH = 75
-PANIC_WATCH = 67
-FUNDAMENTALS_HEALTHY = 60
-FUNDAMENTALS_BROKEN = 40
+FUNDAMENTALS_SPLIT = 50
 LEGACY_REALITY_BROKEN = 35      # historical proxy-overlay backtest only
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")

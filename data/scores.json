@@ -125,10 +125,10 @@
         "entry_history_snapshot_minimum": 64
       },
       "quadrant": {
-        "code": "watch",
-        "label": "WATCH: stress is near the dislocation threshold"
+        "code": "normal",
+        "label": "NORMAL: no edge from sentiment, do bottom-up work"
       },
-      "verdict": "Panic 71 / Consensus Earnings Health 87. Stress is elevated or nearing the dislocation threshold. Confirm valuation, revision direction, and breadth before acting.",
+      "verdict": "Panic 71 / Consensus Earnings Health 87, Discrepancy +58.7pts. Sentiment offers no edge; decisions belong to stock selection.",
       "analyst_eps": {
         "analyst_eps_target_weight_pct": 87.6,
         "analyst_eps_revision_30d_coverage_pct": 87.6,

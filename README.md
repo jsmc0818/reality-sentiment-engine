@@ -1,4 +1,4 @@
-# Panic / Consensus Earnings Health Sentiment Engine
+# Reality Sentiment Engine
 
 A two-gauge research screen for a buyside workflow.
 
@@ -21,7 +21,7 @@ flowchart LR
     C --> E["Classify the setup"]
     D --> E
     E --> F["Check valuation and company thesis"]
-    F --> G["Watch, research, or accumulate in stages"]
+    F --> G["Reject, research, or accumulate in stages"]
 ```
 
 The sequence matters. A high Panic score is not a buy signal. Healthy earnings are not
@@ -35,10 +35,9 @@ earnings expectations, followed by a separate valuation and business-quality rev
 - **Dislocation Gap**: `Consensus Earnings Health + Panic - 100`. The public field remains
   `fundamental_discrepancy`. Positive means market stress exceeds the damage visible in
   earnings estimates.
+- **Four-quadrant map**: Panic splits at 75 and Consensus Earnings Health at 50.
 - **Candidate Dislocation**: Panic of at least 75 plus Consensus Earnings Health
-  of at least 60. This is a research flag only, never an allocation instruction.
-- **Watch**: Panic from 67 to 75, or Panic above 75 with mixed earnings evidence.
-  It prepares the research list without pretending the final trigger has arrived.
+  of at least 50. This is a research flag only, never an allocation instruction.
 - **Entry diagnostics**: valuation and 3M EPS-versus-price divergence, reported
   separately so they cannot turn strong fundamentals into a bad reading.
 
@@ -76,9 +75,8 @@ python -m pipeline.run_daily
 6. Consensus Earnings Health at 60 or higher is healthy, 40 to 60 is mixed, and 40 or
    lower is deteriorating. A reading requires one common 30D/60D/90D cohort,
    at least five trends, 70% of the targeted cohort, and 40% of full-scope proxy weight.
-7. Watch begins at Panic 67. Candidate Dislocation requires Panic of at least 75
-   and Consensus Earnings Health of at least 60. High Panic with mixed earnings
-   evidence stays Watch rather than crossing a hard 75-point cliff.
+7. The map is a true two-by-two: Panic splits at 75 and Consensus Earnings Health
+   at its neutral midpoint of 50.
 8. Valuation and EPS-versus-price divergence remain entry diagnostics only.
    The engine does not turn any screen into a buy, sell, sizing, or timing action.
 
@@ -94,9 +92,8 @@ The model follows six rules:
    different gauges so falling prices cannot manufacture a healthy fundamental score.
 4. **Keep weights fixed at publication time.** Missing components do not receive silent
    reweighting, and related volatility measures are capped to prevent double counting.
-5. **Use states, not false precision.** Normal, Watch, Candidate Dislocation, and
-   earnings-deterioration states are more honest than claiming a score of 74 can predict
-   a different future than a score of 75.
+5. **Use states, not false precision.** Normal, Candidate Dislocation, Complacency Trap,
+   and Real Fire are research states, not predictions.
 6. **Leave the final decision to portfolio research.** The output narrows attention.
    Valuation, moat, catalysts, position size, and staged accumulation remain human decisions.
 

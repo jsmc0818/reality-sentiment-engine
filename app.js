@@ -20,17 +20,17 @@ const PANIC_WEIGHTS = {
 
 const FUNDAMENTALS_WEIGHTS = { revision_score: 60, revision_breadth: 40 };
 const ENTRY_ORDER = ["forward_pe", "equity_risk_premium_pts", "trailing_pe", "divergence_pts"];
+const MAX_DATA_AGE_BUSINESS_DAYS = 1;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const QUADRANT_LABELS = {
   normal: "Normal",
   golden: "Candidate Dislocation",
-  watch: "Watch",
   trap: "Complacency Trap",
   fire: "Real Fire",
 };
 const QUADRANT_COLORS = {
   normal: "#669741",
   golden: "#b66a18",
-  watch: "#7463b6",
   trap: "#397d9a",
   fire: "#c44831",
 };
@@ -93,6 +93,12 @@ function indicatorBand(score, group, key = "") {
 
 function validatePayload(data) {
   if (!data || !data.scopes) throw new Error("Missing market scopes");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.asof)
+      || !Number.isFinite(Date.parse(`${data.asof}T00:00:00Z`))
+      || typeof data.generated_at_utc !== "string"
+      || !Number.isFinite(Date.parse(data.generated_at_utc))) {
+    throw new Error("Invalid publication dates");
+  }
   Object.keys(SCOPE_NAMES).forEach((scope) => {
     const reading = data.scopes[scope];
     if (!reading || ![reading.panic, reading.fundamentals, reading.fundamental_discrepancy].every(Number.isFinite)) {
@@ -116,6 +122,32 @@ function validatePayload(data) {
       throw new Error(`Invalid ${scope} component groups`);
     }
   });
+  return data;
+}
+
+function businessDayAge(asof, now = new Date()) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asof)) throw new Error("Invalid as-of date");
+  const start = Date.parse(`${asof}T00:00:00Z`);
+  let cutoff = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (now.getUTCHours() < 21) cutoff -= DAY_MS;
+  while ([0, 6].includes(new Date(cutoff).getUTCDay())) cutoff -= DAY_MS;
+  if (!Number.isFinite(start) || start > cutoff) throw new Error("As-of date is in the future");
+  let age = 0;
+  for (let cursor = start + DAY_MS; cursor <= cutoff; cursor += DAY_MS) {
+    const weekday = new Date(cursor).getUTCDay();
+    if (weekday !== 0 && weekday !== 6) age += 1;
+  }
+  return age;
+}
+
+function requireFreshPayload(data, now = new Date()) {
+  const age = businessDayAge(data.asof, now);
+  if (age > MAX_DATA_AGE_BUSINESS_DAYS) {
+    const error = new Error(`Market data is ${age} business days old`);
+    error.code = "STALE_DATA";
+    error.age = age;
+    throw error;
+  }
   return data;
 }
 
@@ -325,6 +357,20 @@ function render() {
   selectScope(selected);
 }
 
+function renderDataFailure(error) {
+  const stale = error?.code === "STALE_DATA";
+  document.getElementById("asof").textContent = stale
+    ? `Signal withheld · ${error.age} business days stale`
+    : "Market data is temporarily unavailable";
+  document.getElementById("selected-reading").textContent = "No live portfolio signal";
+  document.getElementById("current-verdict-state").textContent = "Signal withheld";
+  document.getElementById("current-verdict-copy").textContent = "Refresh and validate the market and earnings data before using this screen.";
+  document.getElementById("warmup").textContent = stale
+    ? "The market date is outside the one-business-day freshness window."
+    : "The latest reading did not pass the public data contract.";
+  observeReveals();
+}
+
 if (typeof document !== "undefined") {
   const loadJson = (url) => fetch(url, { cache: "no-store" }).then((response) => {
     if (!response.ok) throw new Error(`${url} unavailable`);
@@ -332,26 +378,29 @@ if (typeof document !== "undefined") {
   });
   loadJson("data/scores.json")
     .then((scores) => {
-      payload = validatePayload(scores);
+      payload = requireFreshPayload(validatePayload(scores));
       render();
     })
-    .catch(() => {
-      document.getElementById("asof").textContent = "Market data is temporarily unavailable";
-      document.getElementById("warmup").textContent = "The latest reading did not pass the public data contract.";
-      observeReveals();
-    });
+    .catch(renderDataFailure);
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { indicatorBand, publicLanguage, validatePayload, validateTimeline, visualCoordinate };
+  module.exports = { businessDayAge, indicatorBand, publicLanguage, requireFreshPayload, validatePayload, validateTimeline, visualCoordinate };
   if (require.main === module) {
+    const assert = require("node:assert/strict");
     const fs = require("node:fs");
     const data = JSON.parse(fs.readFileSync("data/scores.json", "utf8"));
     validatePayload(data);
     if (fs.existsSync("data/timeline.json")) validateTimeline(JSON.parse(fs.readFileSync("data/timeline.json", "utf8")));
-    console.assert(indicatorBand(80, "panic")[0] === "high pressure");
-    console.assert(indicatorBand(50, "fundamentals")[0] === "mixed evidence");
-    console.assert(visualCoordinate(80, 80).y < visualCoordinate(80, 30).y);
-    console.assert(publicLanguage("Golden Zone / Fundamentals") === "Candidate Dislocation / Consensus Earnings Health");
+    assert.equal(indicatorBand(80, "panic")[0], "high pressure");
+    assert.equal(indicatorBand(50, "fundamentals")[0], "mixed evidence");
+    assert.ok(visualCoordinate(80, 80).y < visualCoordinate(80, 30).y);
+    assert.equal(publicLanguage("Golden Zone / Fundamentals"), "Candidate Dislocation / Consensus Earnings Health");
+    assert.equal(businessDayAge("2026-07-17", new Date("2026-07-20T12:00:00Z")), 0);
+    assert.equal(businessDayAge("2026-07-16", new Date("2026-07-21T20:59:00Z")), 2);
+    assert.equal(businessDayAge("2026-07-16", new Date("2026-07-21T21:00:00Z")), 3);
+    const staleFixture = { asof: "2026-07-16" };
+    assert.throws(() => requireFreshPayload(staleFixture, new Date("2026-07-21T20:59:00Z")), { code: "STALE_DATA" });
+    assert.throws(() => requireFreshPayload(staleFixture, new Date("2026-07-21T21:00:00Z")), { code: "STALE_DATA" });
   }
 }
