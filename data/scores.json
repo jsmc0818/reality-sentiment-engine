@@ -1,6 +1,6 @@
 {
-  "asof": "2026-08-12",
-  "generated_at_utc": "2026-08-12T22:13:22+00:00",
+  "asof": "2026-08-13",
+  "generated_at_utc": "2026-08-13T22:21:10+00:00",
   "refresh_policy": {
     "mode": "scheduled_static_publication",
     "stale_after_business_days": 1,
@@ -8,25 +8,25 @@
   },
   "scopes": {
     "sp500": {
-      "panic": 23.1,
+      "panic": 20.5,
       "fundamentals": 78.0,
-      "fundamental_discrepancy": 1.1,
+      "fundamental_discrepancy": -1.5,
       "coverage": {
         "panic_pct": 100.0,
         "panic_ready": true,
-        "panic_asof": "2026-08-12",
+        "panic_asof": "2026-08-13",
         "fundamentals_pct": 57,
         "fundamentals_common_weight_pct": 57.2,
         "fundamentals_common_cohort_pct": 100.0,
         "fundamentals_ready": true,
-        "entry_history_snapshot_count": 4,
+        "entry_history_snapshot_count": 5,
         "entry_history_snapshot_minimum": 64
       },
       "quadrant": {
         "code": "normal",
         "label": "NORMAL: no edge from sentiment, do bottom-up work"
       },
-      "verdict": "Panic 23 / Consensus Earnings Health 78, Discrepancy +1.1pts. Sentiment offers no edge; decisions belong to stock selection.",
+      "verdict": "Panic 20 / Consensus Earnings Health 78, Discrepancy -1.5pts. Sentiment offers no edge; decisions belong to stock selection.",
       "analyst_eps": {
         "analyst_eps_target_weight_pct": 57.2,
         "analyst_eps_revision_30d_coverage_pct": 57.2,
@@ -35,31 +35,31 @@
         "analyst_eps_common_coverage_pct": 57.2,
         "analyst_eps_common_cohort_pct": 100.0,
         "n_analyst_trends": 30,
-        "analyst_eps_revision_30d_pct": 1.689,
-        "analyst_eps_revision_60d_pct": 2.626,
-        "analyst_eps_revision_90d_pct": 5.608,
-        "analyst_eps_up_breadth_30d_pct": 76.5,
+        "analyst_eps_revision_30d_pct": 1.698,
+        "analyst_eps_revision_60d_pct": 2.656,
+        "analyst_eps_revision_90d_pct": 5.625,
+        "analyst_eps_up_breadth_30d_pct": 76.3,
         "analyst_eps_neutral_breadth_30d_pct": 4.2,
-        "analyst_eps_down_breadth_30d_pct": 19.3,
-        "analyst_eps_revision_breadth_30d_pct": 78.6,
-        "analyst_eps_revision_7d_pct": 0.372
+        "analyst_eps_down_breadth_30d_pct": 19.5,
+        "analyst_eps_revision_breadth_30d_pct": 78.4,
+        "analyst_eps_revision_7d_pct": 0.37
       },
       "components": {
         "panic": {
-          "term_structure": 1.7,
-          "credit_velocity": 12.7,
-          "vvix": 28.0,
-          "breadth": 28.9,
-          "put_call": 60.6
+          "term_structure": 2.2,
+          "credit_velocity": 7.5,
+          "vvix": 30.7,
+          "breadth": 21.7,
+          "put_call": 54.9
         },
         "fundamentals": {
-          "revision_score": 77.5,
-          "revision_breadth": 78.6
+          "revision_score": 77.7,
+          "revision_breadth": 78.4
         },
         "entry": {
-          "forward_pe": 20.47,
-          "equity_risk_premium_pts": 0.18,
-          "trailing_pe": 26.07
+          "forward_pe": 20.62,
+          "equity_risk_premium_pts": 0.17,
+          "trailing_pe": 26.27
         }
       },
       "data_quality": {
@@ -69,39 +69,39 @@
         "constituent_price_count": 503,
         "constituent_price_coverage_pct": 100.0,
         "eps_source": "yfinance_market_cap_proxy_ranked_d08275ecbe49",
-        "eps_observation_date": "2026-08-12",
+        "eps_observation_date": "2026-08-13",
         "panic_components": {
           "term_structure": {
             "source": "Cboe official daily closes (VIX9D / VIX3M)",
-            "observation_date": "2026-08-12",
+            "observation_date": "2026-08-13",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 25.0
           },
           "credit_velocity": {
             "source": "FRED BAMLH0A0HYM2",
-            "observation_date": "2026-08-11",
+            "observation_date": "2026-08-12",
             "stale_business_days": 1,
             "fresh": true,
             "weight_pct": 22.0
           },
           "vvix": {
             "source": "Yahoo Finance adjusted close (^VVIX)",
-            "observation_date": "2026-08-12",
+            "observation_date": "2026-08-13",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 20.0
           },
           "breadth": {
             "source": "Yahoo Finance constituent adjusted closes",
-            "observation_date": "2026-08-12",
+            "observation_date": "2026-08-13",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 18.0
           },
           "put_call": {
             "source": "Cboe Equity Put/Call Ratio",
-            "observation_date": "2026-08-11",
+            "observation_date": "2026-08-12",
             "stale_business_days": 1,
             "fresh": true,
             "weight_pct": 15.0
@@ -110,25 +110,25 @@
       }
     },
     "ndx100": {
-      "panic": 48.8,
-      "fundamentals": 81.7,
-      "fundamental_discrepancy": 30.5,
+      "panic": 43.3,
+      "fundamentals": 81.8,
+      "fundamental_discrepancy": 25.1,
       "coverage": {
         "panic_pct": 100.0,
         "panic_ready": true,
-        "panic_asof": "2026-08-12",
+        "panic_asof": "2026-08-13",
         "fundamentals_pct": 88,
         "fundamentals_common_weight_pct": 87.6,
         "fundamentals_common_cohort_pct": 100.0,
         "fundamentals_ready": true,
-        "entry_history_snapshot_count": 18,
+        "entry_history_snapshot_count": 19,
         "entry_history_snapshot_minimum": 64
       },
       "quadrant": {
         "code": "normal",
         "label": "NORMAL: no edge from sentiment, do bottom-up work"
       },
-      "verdict": "Panic 49 / Consensus Earnings Health 82, Discrepancy +30.5pts. Sentiment offers no edge; decisions belong to stock selection.",
+      "verdict": "Panic 43 / Consensus Earnings Health 82, Discrepancy +25.1pts. Sentiment offers no edge; decisions belong to stock selection.",
       "analyst_eps": {
         "analyst_eps_target_weight_pct": 87.6,
         "analyst_eps_revision_30d_coverage_pct": 87.6,
@@ -137,31 +137,31 @@
         "analyst_eps_common_coverage_pct": 87.6,
         "analyst_eps_common_cohort_pct": 100.0,
         "n_analyst_trends": 30,
-        "analyst_eps_revision_30d_pct": 2.042,
-        "analyst_eps_revision_60d_pct": 3.147,
-        "analyst_eps_revision_90d_pct": 7.607,
-        "analyst_eps_up_breadth_30d_pct": 74.2,
+        "analyst_eps_revision_30d_pct": 2.06,
+        "analyst_eps_revision_60d_pct": 3.182,
+        "analyst_eps_revision_90d_pct": 7.621,
+        "analyst_eps_up_breadth_30d_pct": 74.0,
         "analyst_eps_neutral_breadth_30d_pct": 5.5,
-        "analyst_eps_down_breadth_30d_pct": 20.3,
-        "analyst_eps_revision_breadth_30d_pct": 77.0,
+        "analyst_eps_down_breadth_30d_pct": 20.5,
+        "analyst_eps_revision_breadth_30d_pct": 76.8,
         "analyst_eps_revision_7d_pct": 0.309
       },
       "components": {
         "panic": {
-          "vxn_ratio": 95.2,
-          "vxn_level": 38.9,
-          "credit_velocity": 12.7,
-          "breadth": 53.7,
-          "put_call": 60.6
+          "vxn_ratio": 95.7,
+          "vxn_level": 40.6,
+          "credit_velocity": 7.5,
+          "breadth": 40.0,
+          "put_call": 54.9
         },
         "fundamentals": {
-          "revision_score": 84.9,
-          "revision_breadth": 77.0
+          "revision_score": 85.1,
+          "revision_breadth": 76.8
         },
         "entry": {
-          "forward_pe": 21.73,
-          "equity_risk_premium_pts": -0.1,
-          "trailing_pe": 28.06
+          "forward_pe": 21.95,
+          "equity_risk_premium_pts": -0.12,
+          "trailing_pe": 28.29
         }
       },
       "data_quality": {
@@ -171,39 +171,39 @@
         "constituent_price_count": 100,
         "constituent_price_coverage_pct": 99.0,
         "eps_source": "yfinance_market_cap_proxy_ranked_60378be5c719",
-        "eps_observation_date": "2026-08-12",
+        "eps_observation_date": "2026-08-13",
         "panic_components": {
           "vxn_ratio": {
             "source": "Yahoo Finance adjusted close (^VXN / ^VIX)",
-            "observation_date": "2026-08-12",
+            "observation_date": "2026-08-13",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 15.0
           },
           "vxn_level": {
             "source": "Yahoo Finance adjusted close (^VXN)",
-            "observation_date": "2026-08-12",
+            "observation_date": "2026-08-13",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 15.0
           },
           "credit_velocity": {
             "source": "FRED BAMLH0A0HYM2",
-            "observation_date": "2026-08-11",
+            "observation_date": "2026-08-12",
             "stale_business_days": 1,
             "fresh": true,
             "weight_pct": 25.0
           },
           "breadth": {
             "source": "Yahoo Finance constituent adjusted closes",
-            "observation_date": "2026-08-12",
+            "observation_date": "2026-08-13",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 25.0
           },
           "put_call": {
             "source": "Cboe Equity Put/Call Ratio",
-            "observation_date": "2026-08-11",
+            "observation_date": "2026-08-12",
             "stale_business_days": 1,
             "fresh": true,
             "weight_pct": 20.0
@@ -212,25 +212,25 @@
       }
     },
     "mag7": {
-      "panic": 51.1,
+      "panic": 41.1,
       "fundamentals": 50.8,
-      "fundamental_discrepancy": 1.9,
+      "fundamental_discrepancy": -8.1,
       "coverage": {
         "panic_pct": 100.0,
         "panic_ready": true,
-        "panic_asof": "2026-08-12",
+        "panic_asof": "2026-08-13",
         "fundamentals_pct": 100,
         "fundamentals_common_weight_pct": 100.0,
         "fundamentals_common_cohort_pct": 100.0,
         "fundamentals_ready": true,
-        "entry_history_snapshot_count": 18,
+        "entry_history_snapshot_count": 19,
         "entry_history_snapshot_minimum": 64
       },
       "quadrant": {
         "code": "normal",
         "label": "NORMAL: no edge from sentiment, do bottom-up work"
       },
-      "verdict": "Panic 51 / Consensus Earnings Health 51, Discrepancy +1.9pts. Sentiment offers no edge; decisions belong to stock selection.",
+      "verdict": "Panic 41 / Consensus Earnings Health 51, Discrepancy -8.1pts. Sentiment offers no edge; decisions belong to stock selection.",
       "analyst_eps": {
         "analyst_eps_target_weight_pct": 100.0,
         "analyst_eps_revision_30d_coverage_pct": 100.0,
@@ -250,20 +250,20 @@
       },
       "components": {
         "panic": {
-          "vxn_ratio": 95.2,
-          "vxn_level": 38.9,
-          "credit_velocity": 12.7,
-          "pairwise_corr": 62.8,
-          "put_call": 60.6
+          "vxn_ratio": 95.7,
+          "vxn_level": 40.6,
+          "credit_velocity": 7.5,
+          "pairwise_corr": 31.1,
+          "put_call": 54.9
         },
         "fundamentals": {
           "revision_score": 46.6,
           "revision_breadth": 57.1
         },
         "entry": {
-          "forward_pe": 24.55,
-          "equity_risk_premium_pts": -0.63,
-          "trailing_pe": 28.22
+          "forward_pe": 24.8,
+          "equity_risk_premium_pts": -0.65,
+          "trailing_pe": 28.46
         }
       },
       "data_quality": {
@@ -273,39 +273,39 @@
         "constituent_price_count": 7,
         "constituent_price_coverage_pct": 100.0,
         "eps_source": "yfinance_market_cap_proxy_ranked_b4d410edf0e5",
-        "eps_observation_date": "2026-08-12",
+        "eps_observation_date": "2026-08-13",
         "panic_components": {
           "vxn_ratio": {
             "source": "Yahoo Finance adjusted close (^VXN / ^VIX)",
-            "observation_date": "2026-08-12",
+            "observation_date": "2026-08-13",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 15.0
           },
           "vxn_level": {
             "source": "Yahoo Finance adjusted close (^VXN)",
-            "observation_date": "2026-08-12",
+            "observation_date": "2026-08-13",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 15.0
           },
           "credit_velocity": {
             "source": "FRED BAMLH0A0HYM2",
-            "observation_date": "2026-08-11",
+            "observation_date": "2026-08-12",
             "stale_business_days": 1,
             "fresh": true,
             "weight_pct": 25.0
           },
           "pairwise_corr": {
             "source": "Yahoo Finance Magnificent Seven downside-return correlations",
-            "observation_date": "2026-08-12",
+            "observation_date": "2026-08-13",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 25.0
           },
           "put_call": {
             "source": "Cboe Equity Put/Call Ratio",
-            "observation_date": "2026-08-11",
+            "observation_date": "2026-08-12",
             "stale_business_days": 1,
             "fresh": true,
             "weight_pct": 20.0
