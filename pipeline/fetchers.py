@@ -24,10 +24,18 @@ logging.basicConfig(level=logging.INFO, format="%(name)s %(levelname)s %(message
 
 CACHE = os.path.join(config.DATA_DIR, "cache")
 os.makedirs(CACHE, exist_ok=True)
+yf.set_tz_cache_location(CACHE)
 
 HTTP_HEADERS = {
     "User-Agent": "sentiment-engine/1.0 (public market-data research)",
 }
+
+
+def completed_market_cutoff(now_utc=None) -> pd.Timestamp:
+    """Latest date safe for daily bars; the workflow runs after 21:00 UTC."""
+    now = now_utc or datetime.now(timezone.utc)
+    cutoff = pd.Timestamp(now.date())
+    return cutoff if now.hour >= 21 else cutoff - pd.offsets.BDay(1)
 
 
 def _safe_error(error: Exception) -> str:
@@ -41,10 +49,10 @@ def _safe_error(error: Exception) -> str:
 # ---------------------------------------------------------------- prices
 def yahoo_history(tickers, start="2015-01-01", end=None) -> pd.DataFrame:
     """Adjusted close panel, columns = tickers."""
+    requested = [tickers] if isinstance(tickers, str) else list(tickers)
     try:
-        requested = [tickers] if isinstance(tickers, str) else list(tickers)
         df = yf.download(tickers, start=start, end=end, auto_adjust=True,
-                         progress=False)["Close"]
+                         progress=False, threads=len(requested) > 10)["Close"]
         if isinstance(df, pd.Series):
             df = df.to_frame(requested[0])
         # Preserve failed names as NaN columns so downstream universe-coverage
@@ -52,7 +60,7 @@ def yahoo_history(tickers, start="2015-01-01", end=None) -> pd.DataFrame:
         return df.reindex(columns=requested).dropna(how="all")
     except Exception as e:  # noqa: BLE001
         log.error("yahoo_history failed for %s: %s", tickers, e)
-        return pd.DataFrame()
+        return pd.DataFrame(columns=requested)
 
 
 def cboe_index_history(symbol: str, start="2015-01-01") -> pd.Series:
@@ -386,9 +394,7 @@ def forward_eps_snapshot(scope: str, market_asof=None, now_utc=None) -> dict:
     The broad indices are cap-weighted; Mag7 is equal-weighted to match its price basket.
     Returns a dict with valuation and analyst-revision diagnostics.
     Appends daily to data/eps_history_{scope}.csv so revision history self-accumulates."""
-    observation_date = pd.Timestamp(
-        (now_utc or datetime.now(timezone.utc)).date()
-    ).normalize()
+    observation_date = completed_market_cutoff(now_utc)
     if (market_asof is not None
             and observation_date != pd.Timestamp(market_asof).normalize()):
         stored = _stored_eps_snapshot(scope, market_asof)
