@@ -15,11 +15,7 @@ from pipeline import public_output as P
 from pipeline import scoring as S
 
 
-def completed_market_cutoff(now_utc=None) -> pd.Timestamp:
-    """Latest date safe for daily bars; the workflow runs after 21:00 UTC."""
-    now = now_utc or datetime.now(timezone.utc)
-    cutoff = pd.Timestamp(now.date())
-    return cutoff if now.hour >= 21 else cutoff - pd.offsets.BDay(1)
+completed_market_cutoff = F.completed_market_cutoff
 
 
 def through_cutoff(data, cutoff):
@@ -132,12 +128,12 @@ def build_entry_diagnostics(scope, idx_px, dgs10, snapshot):
 
 def main():
     os.makedirs(config.DATA_DIR, exist_ok=True)
-    today = pd.Timestamp(datetime.now(timezone.utc).date())
-    market_cutoff = completed_market_cutoff()
+    run_now = datetime.now(timezone.utc)
+    market_cutoff = completed_market_cutoff(run_now)
     raw_lookback = (config.PCTL_WINDOW_DAYS
                     + max(config.BREADTH_MA_DAYS, config.Z_LOOKBACK_DAYS)
                     + config.VELOCITY_DAYS + 30)
-    history_start = (today - pd.offsets.BDay(raw_lookback)).strftime("%Y-%m-%d")
+    history_start = (market_cutoff - pd.offsets.BDay(raw_lookback)).strftime("%Y-%m-%d")
     vols = through_cutoff(F.yahoo_history(config.VOL_TICKERS, start=history_start),
                           market_cutoff)
     vix9d = through_cutoff(F.cboe_index_history("VIX9D", history_start), market_cutoff)
@@ -197,7 +193,7 @@ def main():
                 f"minimum={minimum_price_coverage * 100:.1f}%"
             )
             continue
-        eps_snapshot = F.forward_eps_snapshot(scope, market_asof)
+        eps_snapshot = F.forward_eps_snapshot(scope, market_asof, now_utc=run_now)
         idx_px = (C.equal_weight_index(member_px[scope]) if scope == "mag7"
                   else index_px[config.INDEX_TICKER[scope]])
         raw_p = dict(panic_sp if scope == "sp500" else panic_ndx)

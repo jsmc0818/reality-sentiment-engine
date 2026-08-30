@@ -66,10 +66,23 @@ class FetcherTests(unittest.TestCase):
             )},
             axis=1,
         )
-        with patch.object(fetchers.yf, "download", return_value=raw):
+        with patch.object(fetchers.yf, "download", return_value=raw) as download:
             prices = fetchers.yahoo_history(["AAA", "BBB"])
         self.assertEqual(prices.columns.tolist(), ["AAA", "BBB"])
         self.assertTrue(pd.isna(prices.loc[pd.Timestamp("2026-07-20"), "BBB"]))
+        self.assertFalse(download.call_args.kwargs["threads"])
+
+    def test_ndx_constituents_use_nasdaq_api(self):
+        nasdaq = Mock()
+        nasdaq.json.return_value = {
+            "data": {"data": {"rows": [{"symbol": "AAPL"}, {"symbol": "MSFT"}]}}
+        }
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(fetchers, "CACHE", directory), \
+                patch.object(fetchers.requests, "get", return_value=nasdaq):
+            tickers = fetchers.constituents("ndx100")
+        self.assertEqual(tickers, ["AAPL", "MSFT"])
+        nasdaq.raise_for_status.assert_called_once()
 
     def test_eps_snapshot_blocks_a_mixed_market_date_before_fetching(self):
         with tempfile.TemporaryDirectory() as directory, \
@@ -78,7 +91,7 @@ class FetcherTests(unittest.TestCase):
             snapshot = fetchers.forward_eps_snapshot(
                 "sp500",
                 market_asof="2026-07-20",
-                now_utc=datetime(2026, 7, 21, 12, tzinfo=timezone.utc),
+                now_utc=datetime(2026, 7, 21, 22, tzinfo=timezone.utc),
             )
         self.assertEqual(snapshot, {})
         constituents.assert_not_called()
@@ -95,12 +108,12 @@ class FetcherTests(unittest.TestCase):
                 snapshot = fetchers.forward_eps_snapshot(
                     "sp500",
                     market_asof="2026-07-20",
-                    now_utc=datetime(2026, 7, 21, 12, tzinfo=timezone.utc),
+                    now_utc=datetime(2026, 7, 21, 22, tzinfo=timezone.utc),
                 )
         self.assertEqual(snapshot["source_observation_date"], "2026-07-20")
         constituents.assert_not_called()
 
-    def test_eps_trends_do_not_require_positive_forward_pe(self):
+    def test_post_midnight_eps_snapshot_uses_completed_session_without_pe(self):
         tickers = ["AAA", "MSFT", "NVDA"]
         ranked = [{"ticker": ticker, "mc": mc}
                   for ticker, mc in zip(tickers, (1, 2, 3))]
@@ -118,8 +131,13 @@ class FetcherTests(unittest.TestCase):
                 patch.object(fetchers, "_ranked_market_cap_proxy", return_value=ranked), \
                 patch.object(fetchers, "_estimate_row", side_effect=no_valuation), \
                 patch.object(fetchers, "_ticker_eps_trend", trends):
-            snapshot = fetchers.forward_eps_snapshot("sp500")
+            snapshot = fetchers.forward_eps_snapshot(
+                "sp500",
+                market_asof="2026-07-20",
+                now_utc=datetime(2026, 7, 21, 1, tzinfo=timezone.utc),
+            )
         self.assertEqual(snapshot["n_analyst_trends"], 3)
+        self.assertEqual(snapshot["source_observation_date"], "2026-07-20")
         self.assertIsNone(snapshot["fwd_pe"])
         self.assertEqual(set(trends.call_args_list[0][0]), {"AAA"})
         self.assertEqual(trends.call_count, 3)

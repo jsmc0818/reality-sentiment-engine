@@ -24,10 +24,18 @@ logging.basicConfig(level=logging.INFO, format="%(name)s %(levelname)s %(message
 
 CACHE = os.path.join(config.DATA_DIR, "cache")
 os.makedirs(CACHE, exist_ok=True)
+yf.set_tz_cache_location(CACHE)
 
 HTTP_HEADERS = {
     "User-Agent": "sentiment-engine/1.0 (public market-data research)",
 }
+
+
+def completed_market_cutoff(now_utc=None) -> pd.Timestamp:
+    """Latest date safe for daily bars; the workflow runs after 21:00 UTC."""
+    now = now_utc or datetime.now(timezone.utc)
+    cutoff = pd.Timestamp(now.date())
+    return cutoff if now.hour >= 21 else cutoff - pd.offsets.BDay(1)
 
 
 def _safe_error(error: Exception) -> str:
@@ -41,10 +49,10 @@ def _safe_error(error: Exception) -> str:
 # ---------------------------------------------------------------- prices
 def yahoo_history(tickers, start="2015-01-01", end=None) -> pd.DataFrame:
     """Adjusted close panel, columns = tickers."""
+    requested = [tickers] if isinstance(tickers, str) else list(tickers)
     try:
-        requested = [tickers] if isinstance(tickers, str) else list(tickers)
         df = yf.download(tickers, start=start, end=end, auto_adjust=True,
-                         progress=False)["Close"]
+                         progress=False, threads=len(requested) > 10)["Close"]
         if isinstance(df, pd.Series):
             df = df.to_frame(requested[0])
         # Preserve failed names as NaN columns so downstream universe-coverage
@@ -52,7 +60,7 @@ def yahoo_history(tickers, start="2015-01-01", end=None) -> pd.DataFrame:
         return df.reindex(columns=requested).dropna(how="all")
     except Exception as e:  # noqa: BLE001
         log.error("yahoo_history failed for %s: %s", tickers, e)
-        return pd.DataFrame()
+        return pd.DataFrame(columns=requested)
 
 
 def cboe_index_history(symbol: str, start="2015-01-01") -> pd.Series:
@@ -111,10 +119,9 @@ def fred_series(series_id: str, start="2015-01-01") -> pd.Series:
 # ---------------------------------------------------------------- constituents
 _WIKI = {
     "sp500": ("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", 0, "Symbol"),
-    "ndx100": ("https://en.wikipedia.org/wiki/Nasdaq-100", 4, "Ticker"),
 }
 
-_NASDAQ_100 = "https://www.nasdaq.com/solutions/nasdaq-100/companies"
+_NASDAQ_100 = "https://api.nasdaq.com/api/quote/list-type/nasdaq100"
 
 
 def _tickers_from_tables(tables, columns) -> list[str]:
@@ -126,9 +133,6 @@ def _tickers_from_tables(tables, columns) -> list[str]:
         if match is not None:
             return table[match].astype(str).tolist()
 
-        # Nasdaq's official page currently renders its header as the first row.
-        if len(table) and str(table.iloc[0, 0]).strip().casefold() in wanted:
-            return table.iloc[1:, 0].astype(str).tolist()
     return []
 
 
@@ -139,24 +143,25 @@ def constituents(scope: str, max_age_days=7) -> list[str]:
     path = os.path.join(CACHE, f"constituents_{scope}.json")
     if os.path.exists(path) and (time.time() - os.path.getmtime(path)) < max_age_days * 86400:
         return json.load(open(path))
-    url, table_ix, col = _WIKI[scope]
     try:
-        html = requests.get(url, timeout=30,
-                            headers=HTTP_HEADERS).text
-        tables = pd.read_html(io.StringIO(html))
-        # Table indices and, for Nasdaq-100, the entire table can disappear.
-        tickers = _tickers_from_tables(tables, [col, "Ticker", "Ticker symbol",
-                                                "Security Symbol"])
-        if not tickers and scope == "ndx100":
+        if scope == "ndx100":
+            col = "symbol"
             r = requests.get(_NASDAQ_100, timeout=30, headers=HTTP_HEADERS)
             r.raise_for_status()
-            tickers = _tickers_from_tables(pd.read_html(io.StringIO(r.text)),
-                                            ["Symbol", "Ticker"])
+            rows = (r.json().get("data") or {}).get("data", {}).get("rows") or []
+            tickers = [row.get("symbol") for row in rows if row.get("symbol")]
+        else:
+            url, _, col = _WIKI[scope]
+            html = requests.get(url, timeout=30, headers=HTTP_HEADERS).text
+            tables = pd.read_html(io.StringIO(html))
+            tickers = _tickers_from_tables(tables, [col, "Ticker", "Ticker symbol",
+                                                    "Security Symbol"])
         if not tickers:
             raise ValueError(f"no table with column {col}")
         tickers = [t.strip().replace(".", "-") for t in tickers
                    if t and t.strip().casefold() not in {"symbol", "ticker", "nan"}]
-        json.dump(tickers, open(path, "w"))
+        with open(path, "w") as cache_file:
+            json.dump(tickers, cache_file)
         return tickers
     except Exception as e:  # noqa: BLE001
         log.error("constituents(%s) failed: %s", scope, e)
@@ -386,9 +391,7 @@ def forward_eps_snapshot(scope: str, market_asof=None, now_utc=None) -> dict:
     The broad indices are cap-weighted; Mag7 is equal-weighted to match its price basket.
     Returns a dict with valuation and analyst-revision diagnostics.
     Appends daily to data/eps_history_{scope}.csv so revision history self-accumulates."""
-    observation_date = pd.Timestamp(
-        (now_utc or datetime.now(timezone.utc)).date()
-    ).normalize()
+    observation_date = completed_market_cutoff(now_utc)
     if (market_asof is not None
             and observation_date != pd.Timestamp(market_asof).normalize()):
         stored = _stored_eps_snapshot(scope, market_asof)
