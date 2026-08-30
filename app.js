@@ -20,6 +20,11 @@ const PANIC_WEIGHTS = {
 
 const FUNDAMENTALS_WEIGHTS = { revision_score: 60, revision_breadth: 40 };
 const ENTRY_ORDER = ["forward_pe", "equity_risk_premium_pts", "trailing_pe", "divergence_pts"];
+const TREND_SERIES = [
+  ["panic", "Panic", "#a8681d"],
+  ["fundamentals", "Earnings Health", "#527865"],
+  ["fundamental_discrepancy", "Dislocation Gap", "#397d9a"],
+];
 const MAX_DATA_AGE_BUSINESS_DAYS = 1;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const QUADRANT_LABELS = {
@@ -53,6 +58,7 @@ const COMPONENTS = {
 };
 
 let payload;
+let timelinePayload;
 let selected = "sp500";
 let revealObserver;
 
@@ -269,11 +275,54 @@ function componentCard(scope, key, score, group, index) {
   return shell;
 }
 
+function trendDomain(points) {
+  const values = points.flatMap((point) => TREND_SERIES.map(([key]) => point[key]));
+  return [Math.floor(Math.min(0, ...values) / 10) * 10,
+    Math.ceil(Math.max(0, ...values) / 10) * 10 || 10];
+}
+
+function trendPath(points, key, low, high) {
+  return points.map((point, index) => {
+    const x = 32 + index / Math.max(1, points.length - 1) * 438;
+    const y = 8 + (high - point[key]) / (high - low) * 112;
+    return `${index ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(" ");
+}
+
+function trendCard(scope, index) {
+  const points = timelinePayload.scopes[scope];
+  const [low, high] = trendDomain(points);
+  const latest = points[points.length - 1];
+  const shortDate = (date) => new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const grid = [high, (high + low) / 2, low].map((value) => {
+    const y = 8 + (high - value) / (high - low) * 112;
+    return `<line x1="32" x2="470" y1="${y}" y2="${y}"/><text x="27" y="${y + 3}" text-anchor="end">${value}</text>`;
+  }).join("");
+  const lines = TREND_SERIES.map(([key, , color]) =>
+    `<path d="${trendPath(points, key, low, high)}" stroke="${color}"/>`
+  ).join("");
+  const legend = TREND_SERIES.map(([key, label, color]) =>
+    `<span style="--trend-color:${color}">${label} <strong>${latest[key].toFixed(1)}</strong></span>`
+  ).join("");
+  const shell = document.createElement("div");
+  shell.className = "component-shell trend-shell reveal";
+  shell.style.setProperty("--index", index);
+  shell.innerHTML = `<article class="component trend-card">
+    <div class="component-top"><span class="component-badge">${points.length} sessions</span><strong class="trend-date">${shortDate(latest.date)}</strong></div>
+    <h4>Three-Signal Trend</h4>
+    <div class="trend-chart"><svg viewBox="0 0 480 148" role="img" aria-label="${SCOPE_NAMES[scope]} Panic, Earnings Health, and Dislocation Gap from ${points[0].date} to ${latest.date}"><g class="trend-grid">${grid}</g><g class="trend-lines">${lines}</g><text x="32" y="142">${shortDate(points[0].date)}</text><text x="470" y="142" text-anchor="end">${shortDate(latest.date)}</text></svg></div>
+    <div class="trend-legend">${legend}</div>
+    <p>Headline readings since prospective EPS tracking began. Earlier Earnings Health and Gap values cannot be backfilled honestly.</p>
+    <div class="component-meta"><span>Full available history</span><span>Updates daily</span></div>
+  </article>`;
+  return shell;
+}
+
 function renderComponents(scope, reading) {
   const panic = Object.entries(reading.components.panic).map(([key, score], index) => componentCard(scope, key, score, "panic", index));
   const fundamentals = Object.entries(reading.components.fundamentals).map(([key, score], index) => componentCard(scope, key, score, "fundamentals", index));
   const entry = ENTRY_ORDER.filter((key) => key in reading.components.entry).map((key, index) => componentCard(scope, key, reading.components.entry[key], "entry", index));
-  document.getElementById("panic-components").replaceChildren(...panic);
+  document.getElementById("panic-components").replaceChildren(...panic, trendCard(scope, panic.length));
   document.getElementById("fundamentals-components").replaceChildren(...fundamentals);
   document.getElementById("entry-components").replaceChildren(...entry);
 }
@@ -376,8 +425,9 @@ if (typeof document !== "undefined") {
     if (!response.ok) throw new Error(`${url} unavailable`);
     return response.json();
   });
-  loadJson("data/scores.json")
-    .then((scores) => {
+  Promise.all([loadJson("data/scores.json"), loadJson("data/timeline.json")])
+    .then(([scores, timeline]) => {
+      timelinePayload = validateTimeline(timeline);
       payload = requireFreshPayload(validatePayload(scores));
       render();
     })
@@ -385,7 +435,7 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { businessDayAge, indicatorBand, publicLanguage, requireFreshPayload, validatePayload, validateTimeline, visualCoordinate };
+  module.exports = { businessDayAge, indicatorBand, publicLanguage, requireFreshPayload, trendDomain, trendPath, validatePayload, validateTimeline, visualCoordinate };
   if (require.main === module) {
     const assert = require("node:assert/strict");
     const fs = require("node:fs");
@@ -394,6 +444,9 @@ if (typeof module !== "undefined") {
     if (fs.existsSync("data/timeline.json")) validateTimeline(JSON.parse(fs.readFileSync("data/timeline.json", "utf8")));
     assert.equal(indicatorBand(80, "panic")[0], "high pressure");
     assert.equal(indicatorBand(50, "fundamentals")[0], "mixed evidence");
+    const trendFixture = [{ panic: 20, fundamentals: 80, fundamental_discrepancy: -11 }, { panic: 40, fundamentals: 90, fundamental_discrepancy: 30 }];
+    assert.deepEqual(trendDomain(trendFixture), [-20, 90]);
+    assert.match(trendPath(trendFixture, "panic", 0, 100), /^M32\.0 97\.6 L470\.0 75\.2$/);
     assert.ok(visualCoordinate(80, 80).y < visualCoordinate(80, 30).y);
     assert.equal(publicLanguage("Golden Zone / Fundamentals"), "Candidate Dislocation / Consensus Earnings Health");
     assert.equal(businessDayAge("2026-07-17", new Date("2026-07-20T12:00:00Z")), 0);
