@@ -116,6 +116,10 @@ def fundamental_health(snapshot: dict) -> dict | None:
     """
     breadth = snapshot.get("analyst_eps_revision_breadth_30d_pct")
     n = snapshot.get("n_analyst_trends", 0)
+    scope = snapshot.get("scope")
+    minimum_names = config.MIN_ANALYST_TRENDS_BY_SCOPE.get(
+        scope, config.MIN_ANALYST_TRENDS
+    )
     common_coverage = snapshot.get("analyst_eps_common_coverage_pct", 0)
     common_cohort = snapshot.get("analyst_eps_common_cohort_pct", 0)
     revisions = {
@@ -123,7 +127,7 @@ def fundamental_health(snapshot: dict) -> dict | None:
         for days in REVISION_HORIZON_WEIGHTS
     }
     if (breadth is None or any(value is None for value in revisions.values())
-            or n < config.MIN_ANALYST_TRENDS
+            or n < minimum_names
             or common_coverage < config.MIN_ANALYST_MARKET_CAP_COVERAGE * 100
             or common_cohort < config.MIN_ANALYST_TREND_COVERAGE * 100):
         return None
@@ -149,8 +153,12 @@ def fundamental_discrepancy(panic: float, fundamentals: float) -> float:
     return fundamentals + panic - 100
 
 
-def quadrant(panic: float, fundamentals: float) -> dict:
-    hot = panic >= config.PANIC_HIGH
+def quadrant(panic: float, fundamentals: float, previous_code: str | None = None) -> dict:
+    """Classify the two axes, holding an existing panic regime until it clears 70."""
+    was_hot = previous_code in {"golden", "fire"}
+    hot = panic >= config.PANIC_HIGH or (
+        was_hot and panic >= config.PANIC_HIGH_EXIT
+    )
     healthy = fundamentals >= config.FUNDAMENTALS_SPLIT
     if hot and healthy:
         code, label = "golden", "CANDIDATE DISLOCATION: fear exceeds earnings damage"
@@ -160,11 +168,18 @@ def quadrant(panic: float, fundamentals: float) -> dict:
         code, label = "trap", "COMPLACENCY TRAP: calm surface, deteriorating floor"
     else:
         code, label = "normal", "NORMAL: no edge from sentiment, do bottom-up work"
-    return {"code": code, "label": label}
+    transition = (
+        "entered" if hot and not was_hot
+        else "held" if hot
+        else "exited" if was_hot
+        else "inactive"
+    )
+    return {"code": code, "label": label, "transition": transition}
 
 
-def verdict(panic: float, fundamentals: float, discrepancy: float) -> str:
-    q = quadrant(panic, fundamentals)["code"]
+def verdict(panic: float, fundamentals: float, discrepancy: float,
+            state: dict | None = None) -> str:
+    q = (state or quadrant(panic, fundamentals))["code"]
     if q == "golden":
         return (f"Panic {panic:.0f} / Consensus Earnings Health "
                 f"{fundamentals:.0f}, Discrepancy {discrepancy:+.1f}pts. "
@@ -178,6 +193,5 @@ def verdict(panic: float, fundamentals: float, discrepancy: float) -> str:
         return (f"Panic {panic:.0f} / Consensus Earnings Health "
                 f"{fundamentals:.0f}. Calm prices and weak revisions warrant "
                 "deeper risk review, not an automatic exposure change.")
-    return (f"Panic {panic:.0f} / Consensus Earnings Health {fundamentals:.0f}, "
-            f"Discrepancy {discrepancy:+.1f}pts. Sentiment offers no "
-            f"edge; decisions belong to stock selection.")
+    return (f"Panic {panic:.0f} / Consensus Earnings Health {fundamentals:.0f}. "
+            "Sentiment offers no edge; decisions belong to stock selection.")

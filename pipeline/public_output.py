@@ -15,7 +15,7 @@ REFRESH_POLICY = {
     "stale_after_business_days": config.MAX_PUBLICATION_STALE_BUSINESS_DAYS,
     "schedule": "weekdays_after_us_close",
 }
-TIMELINE_SCHEMA_VERSION = 1
+TIMELINE_SCHEMA_VERSION = 2
 TIMELINE_ENTRY_KEYS = {
     "date", "panic", "fundamentals", "fundamental_discrepancy",
 }
@@ -37,9 +37,28 @@ ANALYST_KEYS = {
     "analyst_eps_common_cohort_pct", "analyst_eps_up_breadth_30d_pct",
     "analyst_eps_neutral_breadth_30d_pct", "analyst_eps_down_breadth_30d_pct",
     "analyst_eps_revision_breadth_30d_pct", "analyst_eps_target_weight_pct",
-    "n_analyst_trends",
+    "analyst_eps_name_breadth_30d_pct",
+    "analyst_eps_sector_breadth_30d_pct",
+    "analyst_eps_cap_weighted_breadth_30d_pct",
+    "analyst_eps_sector_coverage_pct",
+    "analyst_eps_owned_30d_coverage_pct",
+    "analyst_eps_owned_60d_coverage_pct",
+    "analyst_eps_owned_90d_coverage_pct",
+    "analyst_eps_owned_common_coverage_pct",
+    "analyst_eps_effective_name_count", "n_analyst_trends",
 }
-ANALYST_REQUIRED_KEYS = ANALYST_KEYS - {"analyst_eps_revision_7d_pct"}
+ANALYST_OPTIONAL_KEYS = {
+    "analyst_eps_revision_7d_pct", "analyst_eps_name_breadth_30d_pct",
+    "analyst_eps_sector_breadth_30d_pct",
+    "analyst_eps_cap_weighted_breadth_30d_pct",
+    "analyst_eps_sector_coverage_pct",
+    "analyst_eps_owned_30d_coverage_pct",
+    "analyst_eps_owned_60d_coverage_pct",
+    "analyst_eps_owned_90d_coverage_pct",
+    "analyst_eps_owned_common_coverage_pct",
+    "analyst_eps_effective_name_count",
+}
+ANALYST_REQUIRED_KEYS = ANALYST_KEYS - ANALYST_OPTIONAL_KEYS
 COMPONENT_KEYS = {
     "panic": {
         "term_structure", "credit_velocity", "vvix", "breadth", "put_call",
@@ -54,6 +73,7 @@ DATA_QUALITY_KEYS = {
     "constituent_price_count", "constituent_price_coverage_pct",
     "eps_source", "eps_observation_date", "panic_components",
 }
+DATA_QUALITY_OPTIONAL_KEYS = {"eps_revision_basis"}
 PANIC_QUALITY_KEYS = {
     "source", "observation_date", "stale_business_days", "fresh", "weight_pct",
 }
@@ -71,7 +91,8 @@ def build_public_payload(scopes: dict, asof: str) -> dict:
 def build_timeline_payload(previous: dict | None, scopes: dict, asof: str) -> dict:
     """Append one real published reading per scope, replacing same-day reruns."""
     generated = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    history = ({scope: [] for scope in config.SCOPES} if not previous
+    same_method = previous and previous.get("schema_version") == TIMELINE_SCHEMA_VERSION
+    history = ({scope: [] for scope in config.SCOPES} if not same_method
                else {scope: list(previous["scopes"][scope]) for scope in config.SCOPES})
     for scope in config.SCOPES:
         reading = scopes[scope]
@@ -164,12 +185,34 @@ def validate_public_payload(payload: dict) -> None:
                 f"{scope}.entry history minimum", 1, 100000)
 
         quadrant = reading["quadrant"]
-        _keys(quadrant, {"code", "label"}, f"{scope}.quadrant")
+        _keys(quadrant, {"code", "label", "transition"},
+              f"{scope}.quadrant", exact=False)
+        if not {"code", "label"} <= set(quadrant):
+            raise ValueError(f"{scope}.quadrant is missing required fields")
         if quadrant["code"] not in {"golden", "fire", "trap", "normal"}:
             raise ValueError(f"{scope}.quadrant code is invalid")
         if not isinstance(quadrant["label"], str):
             raise ValueError(f"{scope}.quadrant label must be text")
-        hot = reading["panic"] >= config.PANIC_HIGH
+        transition = quadrant.get("transition")
+        if transition not in {None, "entered", "held", "exited", "inactive"}:
+            raise ValueError(f"{scope}.quadrant transition is invalid")
+        hot = quadrant["code"] in {"golden", "fire"}
+        if transition == "entered" and (not hot or reading["panic"] < config.PANIC_HIGH):
+            raise ValueError(f"{scope}.quadrant entry is inconsistent")
+        if transition == "held" and (not hot
+                                      or reading["panic"] < config.PANIC_HIGH_EXIT):
+            raise ValueError(f"{scope}.quadrant hold is inconsistent")
+        if transition == "exited" and (hot
+                                        or reading["panic"] >= config.PANIC_HIGH_EXIT):
+            raise ValueError(f"{scope}.quadrant exit is inconsistent")
+        if transition == "inactive" and hot:
+            raise ValueError(f"{scope}.quadrant inactive state is inconsistent")
+        if hot and reading["panic"] < config.PANIC_HIGH:
+            if not (transition == "held"
+                    and reading["panic"] >= config.PANIC_HIGH_EXIT):
+                raise ValueError(f"{scope}.quadrant panic regime is inconsistent")
+        if not hot and reading["panic"] >= config.PANIC_HIGH:
+            raise ValueError(f"{scope}.quadrant misses an extreme panic reading")
         healthy = reading["fundamentals"] >= config.FUNDAMENTALS_SPLIT
         expected_quadrant = ("golden" if hot and healthy else "fire" if hot
                              else "normal" if healthy else "trap")
@@ -194,12 +237,23 @@ def validate_public_payload(payload: dict) -> None:
         ))
         if abs(breadth_total - 100) > .2:
             raise ValueError(f"{scope}.analyst breadth must sum to 100")
-        expected_breadth = (analyst["analyst_eps_up_breadth_30d_pct"]
-                            + .5 * analyst["analyst_eps_neutral_breadth_30d_pct"])
+        name_breadth = analyst.get(
+            "analyst_eps_name_breadth_30d_pct",
+            analyst["analyst_eps_up_breadth_30d_pct"]
+            + .5 * analyst["analyst_eps_neutral_breadth_30d_pct"],
+        )
+        expected_breadth = name_breadth
+        if "analyst_eps_sector_breadth_30d_pct" in analyst:
+            expected_breadth = (
+                name_breadth + analyst["analyst_eps_sector_breadth_30d_pct"]
+            ) / 2
         if abs(analyst["analyst_eps_revision_breadth_30d_pct"]
                - expected_breadth) > .11:
             raise ValueError(f"{scope}.analyst revision breadth is inconsistent")
-        if analyst["n_analyst_trends"] < config.MIN_ANALYST_TRENDS:
+        minimum_names = config.MIN_ANALYST_TRENDS_BY_SCOPE.get(
+            scope, config.MIN_ANALYST_TRENDS
+        )
+        if analyst["n_analyst_trends"] < minimum_names:
             raise ValueError(f"{scope}.analyst trend count is below the gate")
         if (analyst["analyst_eps_common_coverage_pct"]
                 < config.MIN_ANALYST_MARKET_CAP_COVERAGE * 100):
@@ -235,7 +289,10 @@ def validate_public_payload(payload: dict) -> None:
             raise ValueError(f"{scope}.fundamentals is inconsistent with its components")
 
         quality = reading["data_quality"]
-        _keys(quality, DATA_QUALITY_KEYS, f"{scope}.data_quality")
+        _keys(quality, DATA_QUALITY_KEYS | DATA_QUALITY_OPTIONAL_KEYS,
+              f"{scope}.data_quality", exact=False)
+        if not DATA_QUALITY_KEYS <= set(quality):
+            raise ValueError(f"{scope}.data_quality is missing required evidence")
         if not (isinstance(quality["constituent_hash"], str)
                 and re.fullmatch(r"[0-9a-f]{64}", quality["constituent_hash"])):
             raise ValueError(f"{scope}.constituent_hash must be sha256 hex")
@@ -268,6 +325,8 @@ def validate_public_payload(payload: dict) -> None:
         )
         if quality["eps_source"] != expected_eps_source:
             raise ValueError(f"{scope}.eps_source does not match the constituent set")
+        if quality.get("eps_revision_basis") not in {None, "vendor", "mixed", "owned"}:
+            raise ValueError(f"{scope}.eps_revision_basis is invalid")
         eps_date = datetime.strptime(quality["eps_observation_date"], "%Y-%m-%d").date()
         if eps_date != asof_date:
             raise ValueError(f"{scope}.eps_observation_date must match the public asof")
@@ -306,7 +365,7 @@ def validate_timeline_payload(payload: dict) -> None:
     """Validate the small, prospective history consumed by the public chart."""
     _keys(payload, {"schema_version", "generated_at_utc", "methodology_start", "scopes"},
           "timeline root")
-    if payload["schema_version"] != TIMELINE_SCHEMA_VERSION:
+    if payload["schema_version"] not in {1, TIMELINE_SCHEMA_VERSION}:
         raise ValueError("timeline schema version is unsupported")
     datetime.fromisoformat(payload["generated_at_utc"].replace("Z", "+00:00"))
     start = datetime.strptime(payload["methodology_start"], "%Y-%m-%d").date()

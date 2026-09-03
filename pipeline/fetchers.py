@@ -342,6 +342,37 @@ def _eps_trend_changes(trend: pd.DataFrame) -> dict:
     return out
 
 
+def _raw_value(value):
+    """Unwrap Yahoo quote-summary values without accepting non-numbers."""
+    if isinstance(value, dict):
+        value = value.get("raw")
+    value = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    return float(value) if pd.notna(value) else None
+
+
+def _eps_trend_payload(row: dict) -> dict:
+    """Normalize one Yahoo +1y row, including its actual fiscal target."""
+    if not row or row.get("period") != "+1y":
+        return {}
+    trend = row.get("epsTrend") or {}
+    current = _raw_value(trend.get("current"))
+    target_end = row.get("endDate")
+    if current is None or not target_end:
+        return {}
+    frame = pd.DataFrame(
+        {key: [_raw_value(value)] for key, value in trend.items()
+         if key in {"current", "7daysAgo", "30daysAgo", "60daysAgo", "90daysAgo"}},
+        index=["+1y"],
+    )
+    out = _eps_trend_changes(frame)
+    out.update({
+        "analyst_eps_current": current,
+        "analyst_target_end_date": str(target_end),
+        "analyst_currency": (row.get("epsTrend") or {}).get("epsTrendCurrency"),
+    })
+    return out
+
+
 @lru_cache(maxsize=None)
 def _estimate_row(ticker: str) -> dict | None:
     """Detailed valuation row; EPS-trend eligibility does not depend on it."""
@@ -350,7 +381,8 @@ def _estimate_row(ticker: str) -> dict | None:
         return {"ticker": ticker,
                 "mc": _positive_number(info.get("marketCap")),
                 "fwd_pe": _positive_number(info.get("forwardPE")),
-                "trl_pe": _positive_number(info.get("trailingPE"))}
+                "trl_pe": _positive_number(info.get("trailingPE")),
+                "sector": info.get("sector")}
     except Exception as e:  # noqa: BLE001
         log.debug("Yahoo estimate failed for %s: %s", ticker, e)
     return None
@@ -358,11 +390,127 @@ def _estimate_row(ticker: str) -> dict | None:
 
 @lru_cache(maxsize=None)
 def _ticker_eps_trend(ticker: str) -> dict:
+    quote = yf.Ticker(ticker)
     try:
-        return _eps_trend_changes(yf.Ticker(ticker).get_eps_trend())
+        payload = quote._analysis._fetch(["earningsTrend"])
+        rows = payload["quoteSummary"]["result"][0]["earningsTrend"]["trend"]
+        match = next((row for row in rows if row.get("period") == "+1y"), None)
+        parsed = _eps_trend_payload(match)
+        if parsed:
+            return parsed
     except Exception as e:  # noqa: BLE001
-        log.debug("Yahoo EPS trend failed for %s: %s", ticker, e)
+        log.debug("Yahoo raw EPS trend failed for %s: %s", ticker, e)
+    try:
+        return _eps_trend_changes(quote.get_eps_trend())
+    except Exception as e:  # noqa: BLE001
+        log.debug("Yahoo EPS trend fallback failed for %s: %s", ticker, e)
         return {}
+
+
+def _eps_observation_path(scope: str) -> str:
+    return os.path.join(config.DATA_DIR, f"eps_observations_{scope}.csv")
+
+
+def _append_eps_observations(scope: str, target: pd.DataFrame, asof: str) -> pd.DataFrame:
+    """Atomically retain raw daily estimates before deriving revisions."""
+    columns = ["ticker", "analyst_target_end_date", "analyst_eps_current"]
+    valid = target.dropna(subset=columns).copy() if set(columns) <= set(target) else pd.DataFrame()
+    path = _eps_observation_path(scope)
+    prior = pd.read_csv(path) if os.path.exists(path) else pd.DataFrame()
+    if valid.empty:
+        return prior
+    collected = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    current = pd.DataFrame({
+        "asof": asof,
+        "collected_at_utc": collected,
+        "ticker": valid["ticker"].astype(str),
+        "target_end_date": valid["analyst_target_end_date"].astype(str),
+        "eps_estimate": valid["analyst_eps_current"].astype(float),
+        "currency": valid.get("analyst_currency"),
+        "proxy_weight": valid["proxy_weight"].astype(float),
+    })
+    updated = pd.concat([prior, current], ignore_index=True)
+    updated = updated.drop_duplicates(
+        ["asof", "ticker", "target_end_date"], keep="last"
+    ).sort_values(["asof", "ticker", "target_end_date"])
+    temporary = f"{path}.tmp"
+    updated.to_csv(temporary, index=False)
+    os.replace(temporary, path)
+    return updated
+
+
+def _apply_owned_eps_revisions(
+    target: pd.DataFrame, history: pd.DataFrame, asof
+) -> pd.DataFrame:
+    """Prefer our own same-target observations over Yahoo's rolling comparisons."""
+    result = target.copy()
+    for days in (7, 30, 60, 90):
+        revision = f"analyst_eps_revision_{days}d_pct"
+        basis = f"analyst_eps_revision_{days}d_basis"
+        values = result.get(revision, pd.Series(index=result.index, dtype=float))
+        result[basis] = values.notna().map({True: "vendor", False: None})
+    required = {"asof", "ticker", "target_end_date", "eps_estimate"}
+    if history.empty or not required <= set(history):
+        return result
+    history = history.copy()
+    history["asof"] = pd.to_datetime(history["asof"], errors="coerce")
+    current_asof = pd.Timestamp(asof).normalize()
+    for row_ix, row in result.iterrows():
+        current = row.get("analyst_eps_current")
+        target_end = row.get("analyst_target_end_date")
+        if pd.isna(current) or pd.isna(target_end):
+            continue
+        matches = history[
+            (history["ticker"] == row["ticker"])
+            & (history["target_end_date"].astype(str) == str(target_end))
+        ].sort_values("asof")
+        for days in (7, 30, 60, 90):
+            cutoff = current_asof - pd.Timedelta(days=days)
+            eligible = matches[matches["asof"] <= cutoff]
+            if eligible.empty:
+                continue
+            prior = eligible.iloc[-1]
+            if (cutoff - prior["asof"]).days > config.EPS_OWNED_LOOKBACK_TOLERANCE_DAYS:
+                continue
+            result.at[row_ix, f"analyst_eps_revision_{days}d_pct"] = (
+                _signed_eps_change_pct(float(current), float(prior["eps_estimate"]))
+            )
+            result.at[row_ix, f"analyst_eps_revision_{days}d_basis"] = "owned"
+    return result
+
+
+def _revision_breadth(common: pd.DataFrame, scope: str) -> dict:
+    """Use company and sector breadth so mega-caps cannot define participation."""
+    revision = common["analyst_eps_revision_30d_pct"]
+    up = revision > config.EPS_REVISION_DEADBAND_PCT
+    down = revision < -config.EPS_REVISION_DEADBAND_PCT
+    neutral = ~(up | down)
+    direction = up.astype(float) + .5 * neutral.astype(float)
+    out = {
+        "analyst_eps_up_breadth_30d_pct": round(float(up.mean() * 100), 1),
+        "analyst_eps_neutral_breadth_30d_pct": round(float(neutral.mean() * 100), 1),
+        "analyst_eps_down_breadth_30d_pct": round(float(down.mean() * 100), 1),
+        "analyst_eps_name_breadth_30d_pct": round(float(direction.mean() * 100), 1),
+    }
+    common_w = common["proxy_weight"] / common["proxy_weight"].sum()
+    out["analyst_eps_cap_weighted_breadth_30d_pct"] = round(
+        float((direction * common_w).sum() * 100), 1
+    )
+    sector_rows = common.dropna(subset=["sector"]) if "sector" in common else pd.DataFrame()
+    sector_coverage = len(sector_rows) / len(common)
+    out["analyst_eps_sector_coverage_pct"] = round(sector_coverage * 100, 1)
+    if scope != "mag7" and sector_coverage >= config.MIN_ANALYST_SECTOR_COVERAGE:
+        sector_direction = direction.loc[sector_rows.index].groupby(sector_rows["sector"]).mean()
+        sector_breadth = float(sector_direction.mean() * 100)
+        out["analyst_eps_sector_breadth_30d_pct"] = round(sector_breadth, 1)
+        out["analyst_eps_revision_breadth_30d_pct"] = round(
+            .5 * out["analyst_eps_name_breadth_30d_pct"] + .5 * sector_breadth, 1
+        )
+    elif scope == "mag7":
+        out["analyst_eps_revision_breadth_30d_pct"] = out[
+            "analyst_eps_name_breadth_30d_pct"
+        ]
+    return out
 
 
 def _stored_eps_snapshot(scope: str, asof) -> dict:
@@ -419,15 +567,21 @@ def forward_eps_snapshot(scope: str, market_asof=None, now_utc=None) -> dict:
     with ThreadPoolExecutor(max_workers=8) as pool:
         details = list(pool.map(_estimate_row, sample["ticker"]))
     by_ticker = {row["ticker"]: row for row in details if row}
-    for column in ("fwd_pe", "trl_pe"):
+    for column in ("fwd_pe", "trl_pe", "sector"):
         sample[column] = [by_ticker.get(ticker, {}).get(column)
                           for ticker in sample["ticker"]]
+    target["sector"] = [by_ticker.get(ticker, {}).get("sector")
+                        for ticker in target["ticker"]]
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         trends = pool.map(_ticker_eps_trend, target["ticker"])
         for row_ix, changes in zip(target.index, trends):
             for key, value in changes.items():
                 target.at[row_ix, key] = value
+
+    asof = observation_date.strftime("%Y-%m-%d")
+    observation_history = _append_eps_observations(scope, target, asof)
+    target = _apply_owned_eps_revisions(target, observation_history, observation_date)
 
     valuation = sample.dropna(subset=["fwd_pe"])
     valuation = valuation[valuation["fwd_pe"] > 0]
@@ -442,7 +596,6 @@ def forward_eps_snapshot(scope: str, market_asof=None, now_utc=None) -> dict:
     trl_pe = (1.0 / float((trailing_w / trailing["trl_pe"]).sum())
               if len(trailing) else None)
 
-    asof = observation_date.strftime("%Y-%m-%d")
     target_weight = float(target["proxy_weight"].sum())
     snap = {
         "asof": asof,
@@ -456,6 +609,7 @@ def forward_eps_snapshot(scope: str, market_asof=None, now_utc=None) -> dict:
         "valuation_market_cap_proxy_coverage_pct": round(
             float(valuation["proxy_weight"].sum()) * 100, 1),
         "analyst_eps_target_weight_pct": round(target_weight * 100, 1),
+        "scope": scope,
         "source": f"yfinance_market_cap_proxy_ranked_{constituent_hash(tickers)[:12]}",
     }
 
@@ -478,6 +632,26 @@ def forward_eps_snapshot(scope: str, market_asof=None, now_utc=None) -> dict:
         common_weight / target_weight * 100 if target_weight else 0, 1
     )
     snap["n_analyst_trends"] = int(len(common))
+    if not common.empty:
+        common_w = common["proxy_weight"] / common["proxy_weight"].sum()
+        snap["analyst_eps_effective_name_count"] = round(
+            float(1 / common_w.pow(2).sum()), 1
+        )
+        for days in (30, 60, 90):
+            owned = common[f"analyst_eps_revision_{days}d_basis"] == "owned"
+            snap[f"analyst_eps_owned_{days}d_coverage_pct"] = round(
+                float(common.loc[owned, "proxy_weight"].sum()) * 100, 1
+            )
+        owned_common = common[
+            [f"analyst_eps_revision_{days}d_basis" for days in (30, 60, 90)]
+        ].eq("owned").all(axis=1)
+        owned_common_weight = float(common.loc[owned_common, "proxy_weight"].sum())
+        snap["analyst_eps_owned_common_coverage_pct"] = round(
+            owned_common_weight * 100, 1
+        )
+        snap["eps_revision_basis"] = (
+            "owned" if owned_common.all() else "vendor" if not owned_common.any() else "mixed"
+        )
 
     if not common.empty:
         common_w = common["proxy_weight"] / common["proxy_weight"].sum()
@@ -487,19 +661,7 @@ def forward_eps_snapshot(scope: str, market_asof=None, now_utc=None) -> dict:
             )
             snap[column] = round(float((values * common_w).sum()), 3)
 
-        revision_30d = common["analyst_eps_revision_30d_pct"]
-        up = revision_30d > config.EPS_REVISION_DEADBAND_PCT
-        down = revision_30d < -config.EPS_REVISION_DEADBAND_PCT
-        neutral = ~(up | down)
-        up_pct = float((up * common_w).sum() * 100)
-        neutral_pct = float((neutral * common_w).sum() * 100)
-        down_pct = float((down * common_w).sum() * 100)
-        snap["analyst_eps_up_breadth_30d_pct"] = round(up_pct, 1)
-        snap["analyst_eps_neutral_breadth_30d_pct"] = round(neutral_pct, 1)
-        snap["analyst_eps_down_breadth_30d_pct"] = round(down_pct, 1)
-        snap["analyst_eps_revision_breadth_30d_pct"] = round(
-            up_pct + .5 * neutral_pct, 1
-        )
+        snap.update(_revision_breadth(common, scope))
 
     column_7d = "analyst_eps_revision_7d_pct"
     if column_7d in target:

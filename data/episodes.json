@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "generated_at_utc": "2026-09-03T02:17:23+00:00",
+  "entry_rule": "first close after a Candidate Dislocation state begins",
+  "horizons_sessions": [
+    21,
+    63,
+    126
+  ],
+  "methodologies": {
+    "timeline_v1": {
+      "methodology_start": "2026-07-15",
+      "scopes": {
+        "sp500": {
+          "episode_count": 0,
+          "episodes": []
+        },
+        "ndx100": {
+          "episode_count": 1,
+          "episodes": [
+            {
+              "signal_date": "2026-07-24",
+              "signal_panic": 76.2,
+              "signal_fundamentals": 82.7,
+              "state_exit_date": "2026-08-04",
+              "entry_date": "2026-07-27",
+              "entry_price": 28039.2109,
+              "max_drawdown_to_date_pct": -3.53,
+              "return_1m_pct": 4.17,
+              "excess_vs_sp500_1m_pct": 0.61,
+              "status": "maturing"
+            }
+          ]
+        },
+        "mag7": {
+          "episode_count": 1,
+          "episodes": [
+            {
+              "signal_date": "2026-07-28",
+              "signal_panic": 79.5,
+              "signal_fundamentals": 60.4,
+              "state_exit_date": "2026-07-31",
+              "entry_date": "2026-07-29",
+              "entry_price": 400.6425,
+              "max_drawdown_to_date_pct": -2.94,
+              "return_1m_pct": 10.49,
+              "excess_vs_sp500_1m_pct": 4.82,
+              "status": "maturing"
+            }
+          ]
+        }
+      }
+    },
+    "timeline_v2": {
+      "methodology_start": "2026-09-02",
+      "scopes": {
+        "sp500": {
+          "episode_count": 0,
+          "episodes": []
+        },
+        "ndx100": {
+          "episode_count": 0,
+          "episodes": []
+        },
+        "mag7": {
+          "episode_count": 0,
+          "episodes": []
+        }
+      }
+    }
+  }
+}

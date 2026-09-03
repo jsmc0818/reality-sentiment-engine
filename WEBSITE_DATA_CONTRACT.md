@@ -7,8 +7,8 @@ other API.
 
 ## Public data
 
-The only public market-data files are the validated contents of
-`data/scores.json` and `data/timeline.json`. They contain three fixed market
+The browser reads only the validated contents of `data/scores.json` and
+`data/timeline.json`. They contain three fixed market
 scopes: `sp500`, `ndx100`, and `mag7`. The allowed fields are enforced by
 `pipeline/public_output.py`. A new, missing, or unknown field causes the update
 to fail while the prior valid file remains available.
@@ -23,17 +23,23 @@ for compatibility. It contains only direct EPS revision magnitude and revision b
 Valuation and EPS-price divergence are optional entry diagnostics under
 `components.entry`; they never affect Consensus Earnings Health.
 
+Raw EPS observations are stored by ticker, retrieval date, and fiscal target date.
+The public quality record labels revision inputs as `vendor`, `mixed`, or `owned`.
+Broad-index revision breadth gives equal weight to company participation and sector
+participation. Panic enters its high regime at 75 and exits below 70.
+
 A Candidate Dislocation is a research flag only. No public score, quadrant,
 verdict, discrepancy, or timeline point is a buy, sell, sizing, timing, or
 allocation instruction.
 
 ## Data Timeline
 
-`data/timeline.json` uses schema version 1:
+`data/timeline.json` uses schema version 2. A methodology change starts a new
+timeline rather than splicing unlike scores together:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "generated_at_utc": "ISO-8601 timestamp",
   "methodology_start": "YYYY-MM-DD",
   "scopes": {

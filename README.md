@@ -69,14 +69,17 @@ python -m pipeline.run_daily
    revisions at 50%, 30%, and 20%. Moves inside +/-0.25% are neutral.
 4. A zero revision maps to 50. A weighted revision of +5% maps to 100, and
    -5% maps to 0. The result is clipped to the 0-100 range.
-5. The final Consensus Earnings Health score is 60% revision magnitude and 40%
-   market-cap-proxy-weighted revision breadth. Neutral breadth receives half credit.
-   Mag7 uses equal weights.
+5. The final Consensus Earnings Health score is 60% cap-weighted revision magnitude
+   and 40% revision breadth. Broad-index breadth is split equally between company
+   breadth and sector breadth, so one mega-cap cannot define participation. Mag7 uses
+   equal company weights. Neutral revisions receive half credit.
 6. Consensus Earnings Health at 60 or higher is healthy, 40 to 60 is mixed, and 40 or
    lower is deteriorating. A reading requires one common 30D/60D/90D cohort,
-   at least five trends, 70% of the targeted cohort, and 40% of full-scope proxy weight.
-7. The map is a true two-by-two: Panic splits at 75 and Consensus Earnings Health
-   at its neutral midpoint of 50.
+   at least 25 S&P 500 trends, 20 Nasdaq 100 trends, or all seven Mag7 trends, plus
+   70% of the targeted cohort and 40% of full-scope proxy weight.
+7. Panic enters its high regime at 75 and remains there until it clears 70. This
+   small hysteresis band prevents a 74.9 versus 75.0 one-day state flip. Consensus
+   Earnings Health splits at its neutral midpoint of 50.
 8. Valuation and EPS-versus-price divergence remain entry diagnostics only.
    The engine does not turn any screen into a buy, sell, sizing, or timing action.
 
@@ -132,7 +135,7 @@ volatility theme from dominating the score through two closely related measures.
 | Component | Weight | Source |
 |---|---:|---|
 | Weighted 30D/60D/90D next-year EPS revisions | 60% | Yahoo constituent analyst trends |
-| 30D upward-revision breadth | 40% | Yahoo constituent analyst trends |
+| 30D company and sector revision breadth | 40% | Yahoo constituent analyst trends |
 
 **Entry diagnostics**, excluded from Consensus Earnings Health:
 | Diagnostic | Meaning | Source |
@@ -168,11 +171,18 @@ prospectively, with one reading per scope and market date. It never backfills
 Consensus Earnings Health from Shiller earnings, the legacy proxy overlay, or
 other historical substitutes. See `WEBSITE_DATA_CONTRACT.md` for schema details.
 
+`data/eps_observations_<scope>.csv` stores each daily raw estimate with its fiscal
+target date. Same-target observations replace Yahoo's rolling comparison fields as
+the archive matures. The published data-quality field says whether revisions are
+vendor bootstrap, mixed, or fully owned. `data/episodes.json` collapses consecutive
+Candidate days into one episode and records next-close 1M, 3M, and 6M outcomes.
+
 ## Honest limitations (read before showing a PM)
 
-1. **Consensus Earnings Health is prospective and unvalidated.** Free point-in-time
-   constituent revision history is unavailable. The existing backtest studies a legacy
-   Shiller-based entry overlay and must not be presented as validation of the live score.
+1. **Consensus Earnings Health is prospective and unvalidated.** Point-in-time raw
+   constituent estimates now accumulate daily. Until each same-fiscal-target horizon
+   matures, Yahoo's rolling comparison remains an explicitly labeled bootstrap. The
+   legacy Shiller overlay is not validation of the live score.
 2. **Index weights are approximate.** The full current constituent universe is ranked
    by a market-cap proxy first. Valuation calls are capped at the top 100 and analyst
    trends at the top 30 from that ranked universe. Reported coverage is the proxy weight

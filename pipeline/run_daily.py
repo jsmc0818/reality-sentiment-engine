@@ -10,6 +10,7 @@ import pandas as pd
 
 import config
 from pipeline import components as C
+from pipeline import episodes as E
 from pipeline import fetchers as F
 from pipeline import public_output as P
 from pipeline import scoring as S
@@ -126,8 +127,22 @@ def build_entry_diagnostics(scope, idx_px, dgs10, snapshot):
     return entry, snapshot_count
 
 
+def previous_quadrants(path) -> dict[str, str]:
+    """Read only the prior state needed for panic-regime hysteresis."""
+    try:
+        previous = json.loads(Path(path).read_text(encoding="utf-8"))
+        return {
+            scope: previous["scopes"][scope]["quadrant"]["code"]
+            for scope in config.SCOPES
+        }
+    except (OSError, KeyError, TypeError, json.JSONDecodeError):
+        return {}
+
+
 def main():
     os.makedirs(config.DATA_DIR, exist_ok=True)
+    scores_path = Path(config.DATA_DIR) / "scores.json"
+    prior_quadrants = previous_quadrants(scores_path)
     run_now = datetime.now(timezone.utc)
     market_cutoff = completed_market_cutoff(run_now)
     raw_lookback = (config.PCTL_WINDOW_DAYS
@@ -177,6 +192,7 @@ def main():
         "vxn_level": vols["^VXN"],
     }
     out = {"scopes": {}}
+    scope_prices = {}
     failures = []
     market_dates = set()
     for scope in config.SCOPES:
@@ -196,6 +212,7 @@ def main():
         eps_snapshot = F.forward_eps_snapshot(scope, market_asof, now_utc=run_now)
         idx_px = (C.equal_weight_index(member_px[scope]) if scope == "mag7"
                   else index_px[config.INDEX_TICKER[scope]])
+        scope_prices[scope] = idx_px
         raw_p = dict(panic_sp if scope == "sp500" else panic_ndx)
         if scope in ("sp500", "ndx100"):
             raw_p["breadth"] = C.breadth_pct_above_ma(
@@ -234,8 +251,8 @@ def main():
         entry, eps_snapshot_count = build_entry_diagnostics(
             scope, idx_px, dgs10, eps_snapshot
         )
-        quadrant = S.quadrant(p, f)
-        verdict = S.verdict(p, f, discrepancy)
+        quadrant = S.quadrant(p, f, prior_quadrants.get(scope))
+        verdict = S.verdict(p, f, discrepancy, quadrant)
         panic_components = {
             name: round(float(status["score"]), 1)
             for name, status in panic["components"].items()
@@ -285,6 +302,7 @@ def main():
                 "constituent_price_coverage_pct": round(price_coverage, 1),
                 "eps_source": eps_snapshot["source"],
                 "eps_observation_date": eps_snapshot["source_observation_date"],
+                "eps_revision_basis": eps_snapshot.get("eps_revision_basis", "vendor"),
                 "panic_components": panic_quality,
             },
         }
@@ -310,8 +328,18 @@ def main():
     P.validate_public_payload(public_payload)
     P.validate_timeline_payload(timeline_payload)
     P.validate_public_timeline_pair(public_payload, timeline_payload)
+    episode_path = Path(config.DATA_DIR) / "episodes.json"
+    try:
+        previous_episodes = json.loads(episode_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        previous_episodes = None
+    episode_payload = E.build_episode_report(
+        timeline_payload, scope_prices, index_px[config.INDEX_TICKER["sp500"]],
+        previous_episodes,
+    )
     P.write_public_payload(path, public_payload)
     P.write_timeline_payload(timeline_path, timeline_payload)
+    E.write_episode_report(episode_path, episode_payload)
     print(f"wrote {path}")
     print(f"wrote {timeline_path}")
     for s, v in out["scopes"].items():
