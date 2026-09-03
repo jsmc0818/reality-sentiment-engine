@@ -16,22 +16,44 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
-      - run: python -m pip install -r requirements.txt
+          cache: pip
+      - name: install dependencies
+        run: python -m pip install -r requirements.txt
       - name: test public-data safety rules
         run: python -m unittest discover -s tests -v
-      - run: python -m pipeline.run_daily
+      - name: refresh daily scores
+        run: |
+          for attempt in 1 2; do
+            if python -m pipeline.run_daily; then
+              break
+            fi
+            if [ "$attempt" = 2 ]; then
+              exit 1
+            fi
+            echo "::warning::daily refresh failed; retrying once in 30 seconds"
+            sleep 30
+          done
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
       - name: validate public market-data contract
         run: python -m pipeline.public_output data/scores.json data/timeline.json
       - name: commit scores
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          gh auth setup-git
           git config user.name "sentiment-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add data/scores.json data/timeline.json data/eps_history_*.csv || true
-          git commit -m "daily scores $(date -u +%F)" || echo "no changes"
-          git push
+          git add -- data/scores.json data/timeline.json data/eps_history_*.csv data/cboe_equity_put_call.csv
+          if git diff --cached --quiet; then
+            echo "no changes"
+          else
+            git commit -m "daily scores $(date -u +%F)"
+            git push
+          fi
