@@ -76,6 +76,14 @@ class PublicOutputTests(unittest.TestCase):
         updated = build_timeline_payload(timeline, self.payload["scopes"], self.payload["asof"])
         self.assertTrue(all(len(points) == 1 for points in updated["scopes"].values()))
 
+    def test_new_methodology_does_not_splice_the_old_timeline(self):
+        old = build_timeline_payload(None, self.payload["scopes"], self.payload["asof"])
+        old["schema_version"] = 1
+        updated = build_timeline_payload(old, self.payload["scopes"], "2026-09-03")
+        self.assertEqual(updated["schema_version"], 2)
+        self.assertTrue(all(len(points) == 1 for points in updated["scopes"].values()))
+        self.assertEqual(updated["methodology_start"], "2026-09-03")
+
     def test_timeline_rejects_inconsistent_discrepancy(self):
         timeline = build_timeline_payload(None, self.payload["scopes"], self.payload["asof"])
         timeline["scopes"]["sp500"][0]["fundamental_discrepancy"] += 1

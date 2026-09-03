@@ -96,6 +96,14 @@ class ScoringTests(unittest.TestCase):
             analyst_eps_common_coverage_pct=20
         )))
 
+    def test_scope_specific_name_gate_blocks_a_mega_cap_only_reading(self):
+        self.assertIsNone(fundamental_health(self.healthy_snapshot(
+            scope="sp500", n_analyst_trends=20
+        )))
+        self.assertIsNotNone(fundamental_health(self.healthy_snapshot(
+            scope="sp500", n_analyst_trends=25
+        )))
+
     def test_neutral_revisions_score_neutral(self):
         result = fundamental_health(self.healthy_snapshot(
             analyst_eps_revision_30d_pct=0,
@@ -135,6 +143,12 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual(quadrant(75, 49.9)["code"], "fire")
         self.assertEqual(quadrant(74.9, 50)["code"], "normal")
         self.assertEqual(quadrant(74.9, 49.9)["code"], "trap")
+
+    def test_existing_panic_regime_must_clear_70_before_exit(self):
+        held = quadrant(72, 60, previous_code="golden")
+        exited = quadrant(69.9, 60, previous_code="golden")
+        self.assertEqual((held["code"], held["transition"]), ("golden", "held"))
+        self.assertEqual((exited["code"], exited["transition"]), ("normal", "exited"))
 
 
 if __name__ == "__main__":

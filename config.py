@@ -44,15 +44,18 @@ WALK_FORWARD_SPLIT = "2022-01-01"
 TOP_N_FOR_INDEX_EPS = 100      # top market-cap-proxy names used for valuation
 TOP_N_FOR_ANALYST_TRENDS = 30  # top market-cap-proxy names queried for EPS trends
 MIN_FORWARD_EPS_SNAPSHOTS = 64 # endpoints required for one 63-day revision interval
-MIN_ANALYST_TRENDS = 5         # minimum constituent trends for a fundamentals reading
+MIN_ANALYST_TRENDS = 5         # legacy/default minimum; scope gates below are stricter
+MIN_ANALYST_TRENDS_BY_SCOPE = {"sp500": 25, "ndx100": 20, "mag7": 7}
 MIN_ANALYST_TREND_COVERAGE = .70  # common cohort / targeted analyst cohort
 MIN_ANALYST_MARKET_CAP_COVERAGE = .40  # common cohort / full scope proxy weight
+MIN_ANALYST_SECTOR_COVERAGE = .80
 MIN_MARKET_CAP_PROXY_NAME_COVERAGE = .90
 MIN_CONSTITUENT_PRICE_COVERAGE = .90
 MIN_MAG7_PRICE_COVERAGE = 1.0
 EPS_REVISION_DEADBAND_PCT = .25
 EPS_REVISION_CAP_PCT = 50.0
 EPS_SCALE_FLOOR = .05
+EPS_OWNED_LOOKBACK_TOLERANCE_DAYS = 7
 MAX_PANIC_STALE_BUSINESS_DAYS = 2
 MAX_PUBLICATION_STALE_BUSINESS_DAYS = 1
 MIN_PANIC_COMPONENT_COVERAGE = 1.0
@@ -90,6 +93,7 @@ LEGACY_REALITY_WEIGHTS = {
 
 # Decision thresholds (0-100)
 PANIC_HIGH = 75
+PANIC_HIGH_EXIT = 70
 FUNDAMENTALS_SPLIT = 50
 LEGACY_REALITY_BROKEN = 35      # historical proxy-overlay backtest only
 

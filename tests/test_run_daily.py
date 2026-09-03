@@ -12,6 +12,7 @@ from pipeline.run_daily import (
     completed_market_cutoff,
     constituent_price_evidence,
     keep_validated_previous_reading,
+    previous_quadrants,
     through_cutoff,
 )
 
@@ -88,6 +89,19 @@ class DailyCutoffTests(unittest.TestCase):
                     scores, timeline, pd.Timestamp("2026-07-17"),
                     pd.Timestamp("2026-07-20"),
                 )
+
+    def test_previous_quadrants_reads_only_the_state_memory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.json"
+            path.write_text(json.dumps({"scopes": {
+                scope: {"quadrant": {"code": code}}
+                for scope, code in {
+                    "sp500": "normal", "ndx100": "golden", "mag7": "fire"
+                }.items()
+            }}))
+            self.assertEqual(previous_quadrants(path), {
+                "sp500": "normal", "ndx100": "golden", "mag7": "fire"
+            })
 
 
 if __name__ == "__main__":

@@ -6,7 +6,13 @@ from unittest.mock import Mock, patch
 import pandas as pd
 
 from pipeline import fetchers
-from pipeline.fetchers import _eps_trend_changes, _rank_market_cap_rows
+from pipeline.fetchers import (
+    _apply_owned_eps_revisions,
+    _eps_trend_changes,
+    _eps_trend_payload,
+    _rank_market_cap_rows,
+    _revision_breadth,
+)
 
 
 class FetcherTests(unittest.TestCase):
@@ -58,6 +64,73 @@ class FetcherTests(unittest.TestCase):
         self.assertAlmostEqual(
             _eps_trend_changes(trend)["analyst_eps_revision_30d_pct"], 4.0
         )
+
+    def test_raw_eps_payload_keeps_the_fiscal_target(self):
+        row = {
+            "period": "+1y",
+            "endDate": "2027-09-30",
+            "epsTrend": {
+                "current": {"raw": 10.0},
+                "30daysAgo": {"raw": 8.0},
+                "epsTrendCurrency": "USD",
+            },
+        }
+        result = _eps_trend_payload(row)
+        self.assertEqual(result["analyst_target_end_date"], "2027-09-30")
+        self.assertEqual(result["analyst_eps_current"], 10.0)
+        self.assertEqual(result["analyst_eps_revision_30d_pct"], 20.0)
+
+    def test_eps_trend_falls_back_when_target_payload_is_unavailable(self):
+        fetchers._ticker_eps_trend.cache_clear()
+        quote = Mock()
+        quote._analysis._fetch.side_effect = RuntimeError("unavailable")
+        quote.get_eps_trend.return_value = pd.DataFrame(
+            {"current": [2.0], "30daysAgo": [1.0]}, index=["+1y"]
+        )
+        with patch.object(fetchers.yf, "Ticker", return_value=quote):
+            result = fetchers._ticker_eps_trend("TEST")
+        self.assertEqual(result["analyst_eps_revision_30d_pct"], 50.0)
+        fetchers._ticker_eps_trend.cache_clear()
+
+    def test_owned_eps_revision_requires_the_same_fiscal_target(self):
+        target = pd.DataFrame([{
+            "ticker": "AAA",
+            "analyst_target_end_date": "2027-12-31",
+            "analyst_eps_current": 12.0,
+            "analyst_eps_revision_30d_pct": 50.0,
+        }])
+        history = pd.DataFrame([
+            {"asof": "2026-06-20", "ticker": "AAA",
+             "target_end_date": "2026-12-31", "eps_estimate": 1.0},
+            {"asof": "2026-06-20", "ticker": "AAA",
+             "target_end_date": "2027-12-31", "eps_estimate": 10.0},
+        ])
+        result = _apply_owned_eps_revisions(target, history, "2026-07-20")
+        self.assertAlmostEqual(result.loc[0, "analyst_eps_revision_30d_pct"], 100 / 6)
+        self.assertEqual(result.loc[0, "analyst_eps_revision_30d_basis"], "owned")
+        self.assertTrue(pd.isna(result.loc[0, "analyst_eps_revision_60d_basis"]))
+
+    def test_company_and_sector_breadth_resist_mega_cap_domination(self):
+        common = pd.DataFrame({
+            "analyst_eps_revision_30d_pct": [2.0, -2.0, -2.0, -2.0],
+            "proxy_weight": [.85, .05, .05, .05],
+            "sector": ["A", "A", "B", "B"],
+        })
+        result = _revision_breadth(common, "sp500")
+        self.assertEqual(result["analyst_eps_cap_weighted_breadth_30d_pct"], 85.0)
+        self.assertEqual(result["analyst_eps_name_breadth_30d_pct"], 25.0)
+        self.assertEqual(result["analyst_eps_sector_breadth_30d_pct"], 25.0)
+        self.assertEqual(result["analyst_eps_revision_breadth_30d_pct"], 25.0)
+
+    def test_broad_index_breadth_fails_closed_without_sector_coverage(self):
+        common = pd.DataFrame({
+            "analyst_eps_revision_30d_pct": [2.0, -2.0],
+            "proxy_weight": [.5, .5],
+            "sector": ["A", None],
+        })
+        result = _revision_breadth(common, "sp500")
+        self.assertEqual(result["analyst_eps_sector_coverage_pct"], 50.0)
+        self.assertNotIn("analyst_eps_revision_breadth_30d_pct", result)
 
     def test_partial_yahoo_download_preserves_missing_requested_names(self):
         raw = pd.concat(

@@ -50,7 +50,7 @@ jobs:
           gh auth setup-git
           git config user.name "sentiment-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add -- data/scores.json data/timeline.json data/eps_history_*.csv data/cboe_equity_put_call.csv
+          git add -- data/scores.json data/timeline.json data/episodes.json data/eps_history_*.csv data/eps_observations_*.csv data/cboe_equity_put_call.csv
           if git diff --cached --quiet; then
             echo "no changes"
           else

@@ -50,7 +50,7 @@ const COMPONENTS = {
   vxn_level: ["VXN Level", "The Nasdaq-100 implied-volatility percentile. Higher means near-term protection is more expensive.", "Yahoo Finance", "https://finance.yahoo.com/quote/%5EVXN/"],
   pairwise_corr: ["Pairwise Correlation", "How closely the seven stocks move together over 20 days. High correlation can mean investors are selling the basket, not choosing stocks.", "Yahoo constituent prices", "https://finance.yahoo.com/"],
   revision_score: ["EPS Revision Momentum", "Combines 30D, 60D, and 90D next-year EPS revisions at 50%, 30%, and 20%. Changes inside ±0.25% are neutral.", "Yahoo analyst trends", "https://finance.yahoo.com/"],
-  revision_breadth: ["Revision Breadth", "The covered proxy weight receiving upgrades, neutral revisions, or downgrades. Neutral revisions receive half credit so tiny changes cannot flip the score.", "Yahoo analyst trends", "https://finance.yahoo.com/"],
+  revision_breadth: ["Revision Breadth", "For broad indices, company breadth and sector breadth receive equal weight. Mag7 uses equal company weights. Neutral revisions receive half credit.", "Yahoo analyst trends", "https://finance.yahoo.com/"],
   forward_pe: ["Forward P/E", "The price paid for the sampled index's next-year earnings. It is valuation context, not a judgment on business health.", "Yahoo estimates", "https://finance.yahoo.com/"],
   trailing_pe: ["Trailing P/E", "The price paid for the sampled index's last twelve months of earnings. Compare it with forward P/E to understand embedded growth expectations.", "Yahoo estimates", "https://finance.yahoo.com/"],
   equity_risk_premium_pts: ["Equity Risk Premium", "Forward earnings yield less the 10-year Treasury yield. A thin or negative premium means healthy earnings expectations may already be expensive.", "Yahoo + FRED", "https://fred.stlouisfed.org/series/DGS10"],
@@ -158,7 +158,7 @@ function requireFreshPayload(data, now = new Date()) {
 }
 
 function validateTimeline(data) {
-  if (!data || data.schema_version !== 1 || !data.scopes) throw new Error("Invalid timeline contract");
+  if (!data || ![1, 2].includes(data.schema_version) || !data.scopes) throw new Error("Invalid timeline contract");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data.methodology_start)
       || !Number.isFinite(Date.parse(`${data.methodology_start}T00:00:00Z`))
       || typeof data.generated_at_utc !== "string"
@@ -349,11 +349,13 @@ function selectScope(scope) {
   const reading = payload.scopes[scope];
   document.querySelectorAll(".scope-tab, .market-point").forEach((element) => element.setAttribute("aria-pressed", String(element.dataset.scope === scope)));
   const discrepancy = `${reading.fundamental_discrepancy >= 0 ? "+" : ""}${reading.fundamental_discrepancy.toFixed(1)}`;
-  document.getElementById("selected-reading").textContent = `${SCOPE_NAMES[scope]} · Panic ${reading.panic.toFixed(1)} · Consensus Earnings Health ${reading.fundamentals.toFixed(1)} · Dislocation Gap ${discrepancy}`;
+  const gap = reading.panic >= 70 ? ` · Active Dislocation Gap ${discrepancy}` : " · Gap inactive below Panic 70";
+  document.getElementById("selected-reading").textContent = `${SCOPE_NAMES[scope]} · Panic ${reading.panic.toFixed(1)} · Consensus Earnings Health ${reading.fundamentals.toFixed(1)}${gap}`;
   document.querySelectorAll(".verdict-card").forEach((card) => card.classList.toggle("is-current", card.dataset.quadrant === reading.quadrant.code));
   const currentVerdict = document.getElementById("current-verdict");
   currentVerdict.style.setProperty("--current-color", QUADRANT_COLORS[reading.quadrant.code] || QUADRANT_COLORS.normal);
-  document.getElementById("current-verdict-state").textContent = `${SCOPE_NAMES[scope]} · ${QUADRANT_LABELS[reading.quadrant.code] || publicLanguage(reading.quadrant.label)}`;
+  const transition = reading.quadrant.transition === "held" ? " · regime held until Panic clears 70" : "";
+  document.getElementById("current-verdict-state").textContent = `${SCOPE_NAMES[scope]} · ${QUADRANT_LABELS[reading.quadrant.code] || publicLanguage(reading.quadrant.label)}${transition}`;
   document.getElementById("current-verdict-copy").textContent = publicLanguage(reading.verdict);
   const coverage = reading.coverage;
   const entryStatus = coverage.entry_history_snapshot_count >= coverage.entry_history_snapshot_minimum
@@ -363,7 +365,10 @@ function selectScope(scope) {
     ? ` · ${coverage.fundamentals_common_weight_pct}% common-horizon proxy weight.`
     : "";
   const panicDate = coverage.panic_asof ? ` Panic inputs as of ${coverage.panic_asof}.` : "";
-  document.getElementById("warmup").textContent = `Consensus Earnings Health ready · ${coverage.fundamentals_pct}% market-cap-proxy coverage.${commonWeight}${panicDate} ${entryStatus}`;
+  const basis = reading.data_quality?.eps_revision_basis
+    ? ` EPS history basis: ${reading.data_quality.eps_revision_basis}.`
+    : "";
+  document.getElementById("warmup").textContent = `Consensus Earnings Health ready · ${coverage.fundamentals_pct}% market-cap-proxy coverage.${commonWeight}${panicDate}${basis} ${entryStatus}`;
   renderEvidence(reading);
   renderComponents(scope, reading);
   observeReveals();
