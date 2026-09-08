@@ -157,8 +157,40 @@ class FetcherTests(unittest.TestCase):
         self.assertEqual(tickers, ["AAPL", "MSFT"])
         nasdaq.raise_for_status.assert_called_once()
 
-    def test_eps_snapshot_blocks_a_mixed_market_date_before_fetching(self):
+    def test_failed_yahoo_download_preserves_requested_names(self):
+        with self.assertLogs("fetchers", level="ERROR") as logs, \
+                patch.object(fetchers.yf, "download", side_effect=RuntimeError("down")):
+            prices = fetchers.yahoo_history(["AAA", "BBB"])
+        self.assertTrue(prices.empty)
+        self.assertEqual(prices.columns.tolist(), ["AAA", "BBB"])
+        self.assertIn("yahoo_history failed", logs.output[0])
+
+    def test_ndx_constituents_use_nasdaq_api(self):
+        nasdaq = Mock()
+        nasdaq.json.return_value = {
+            "data": {"data": {"rows": [{"symbol": "AAPL"}, {"symbol": "MSFT"}]}}
+        }
         with tempfile.TemporaryDirectory() as directory, \
+                patch.object(fetchers, "CACHE", directory), \
+                patch.object(fetchers.requests, "get", return_value=nasdaq):
+            tickers = fetchers.constituents("ndx100")
+        self.assertEqual(tickers, ["AAPL", "MSFT"])
+        nasdaq.raise_for_status.assert_called_once()
+
+    def test_shiller_workbook_requires_https_from_a_trusted_host(self):
+        self.assertTrue(fetchers._trusted_shiller_url(
+            "https://img1.wsimg.com/downloads/ie_data.xls"
+        ))
+        self.assertFalse(fetchers._trusted_shiller_url(
+            "http://www.econ.yale.edu/~shiller/data/ie_data.xls"
+        ))
+        self.assertFalse(fetchers._trusted_shiller_url(
+            "https://example.com/ie_data.xls"
+        ))
+
+    def test_eps_snapshot_blocks_a_mixed_market_date_before_fetching(self):
+        with self.assertLogs("fetchers", level="ERROR") as logs, \
+                tempfile.TemporaryDirectory() as directory, \
                 patch.object(fetchers.config, "DATA_DIR", directory), \
                 patch.object(fetchers, "constituents") as constituents:
             snapshot = fetchers.forward_eps_snapshot(
@@ -168,6 +200,7 @@ class FetcherTests(unittest.TestCase):
             )
         self.assertEqual(snapshot, {})
         constituents.assert_not_called()
+        self.assertIn("does not match the completed market session", logs.output[0])
 
     def test_eps_snapshot_reuses_an_aligned_stored_observation(self):
         with tempfile.TemporaryDirectory() as directory:

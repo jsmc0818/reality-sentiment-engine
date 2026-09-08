@@ -50,7 +50,7 @@ class DailyCutoffTests(unittest.TestCase):
         )
 
     def test_canonical_market_asof_blocks_beyond_the_staleness_limit(self):
-        dates = pd.to_datetime(["2026-07-16"])
+        dates = pd.to_datetime(["2026-07-20"])
         indices = pd.DataFrame({"^GSPC": [1], "^NDX": [1]}, index=dates)
         mag7 = pd.DataFrame(
             {name: [1] for name in ("NVDA", "AAPL", "MSFT", "GOOGL",
@@ -58,7 +58,7 @@ class DailyCutoffTests(unittest.TestCase):
             index=dates,
         )
         with self.assertRaises(RuntimeError):
-            canonical_market_asof(indices, mag7, pd.Timestamp("2026-07-21"))
+            canonical_market_asof(indices, mag7, pd.Timestamp("2026-07-22"))
 
     def test_constituent_price_evidence_uses_the_requested_denominator(self):
         prices = pd.DataFrame(

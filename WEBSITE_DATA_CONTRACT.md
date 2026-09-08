@@ -1,3 +1,43 @@
+# Expectations research edition: public contract
+
+This section supersedes the legacy dashboard restrictions below where they conflict.
+
+The intentionally public site consists of `index.html`, `about.html`, `styles.css`,
+`app.js`, `model.js`, `assets/favicon.svg`, and the fixed JSON publications
+`data/scores.json`, `data/timeline.json`, `data/stocks.json`. The About page may
+contain the user-authorized author name and project story. Market-data records
+never contain creator profiles, credentials, arbitrary upstream bodies or errors.
+
+Seven fixed stock symbols may be selected. Visitors may change bounded valuation
+assumptions in memory. No data or scenario changes are submitted to a server;
+there is no arbitrary ticker proxy, public refresh, authentication or tracking.
+
+`stocks.json` schema 1 contains methodology `expectations-v1`, generation timestamp
+and seven fixed stock records. `pipeline.stocks.validate` checks exact allowlists,
+financial signs, quarter alignment, quote endpoints, finite values and approved
+company descriptions. Raw quarter observations, target EPS periods and retrieval
+times are retained. Source descriptions are fixed research prompts, not news.
+
+Stock and index publications are independent units, with independent timestamps.
+Failure of one collection does not authorize substituting it into the other.
+Stale quotes and incomplete financial evidence withhold stock classifications.
+Dated financial observations remain inspectable. No old dataset is relabeled as
+new, and no historical stock verdict is backfilled. Stock observations are
+archived prospectively in the repository; the website does not serve the archive
+as a general API.
+
+Model assumptions are explicit, mechanically initialized and unreviewed. Scenario
+values, research categories and growth solutions are not financial forecasts,
+validated probabilities or investment instructions. The model never interprets
+the sum of unlike score scales as an economic valuation gap.
+
+---
+
+## Retained legacy index publication contract
+
+The following rules continue to govern the older paired index JSON files, not
+the new stock publication or the authorized About page.
+
 # Website Data and Refresh Contract
 
 The website is a read-only market-data product. It must never expose creator

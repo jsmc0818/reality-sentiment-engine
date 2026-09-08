@@ -1,464 +1,169 @@
-const SCOPE_NAMES = {
-  sp500: "S&P 500",
-  ndx100: "Nasdaq 100",
-  mag7: "Magnificent Seven",
-};
+/* Scheduled static evidence only. All valuation edits remain in memory. */
+"use strict";
+const M = typeof module !== "undefined" && module.exports ? require("./model.js") : window.ResearchModel;
+const SYMBOLS = ["MSFT", "NVDA", "GOOGL", "AMZN", "META", "AAPL", "TSLA"];
+const SCOPE_NAMES = {sp500: "S&P 500", ndx100: "Nasdaq-100", mag7: "Mag7 basket"};
+const money = n => Number.isFinite(n) ? new Intl.NumberFormat("en-US", {style:"currency", currency:"USD", maximumFractionDigits:2}).format(n) : "Unavailable";
+const pct = (n, digits = 1) => Number.isFinite(n) ? `${n > 0 ? "+" : ""}${n.toFixed(digits)}%` : "Unavailable";
+const billions = n => Number.isFinite(n) ? `$${(n / 1e9).toFixed(1)}B` : "Unavailable";
+const esc = text => String(text ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sign = n => n >= 0 ? "positive" : "negative";
+const moodLabel = n => n <= 30 ? "Selling pressure" : n >= 70 ? "Buying pressure" : "Balanced";
+const badge = (label, tone = "neutral") => `<span class="badge ${tone}">${esc(label)}</span>`;
+let data, selected = "MSFT", assumptions, filter = "all";
 
-const SCOPE_COLORS = {
-  sp500: "#68dcff",
-  ndx100: "#ff9e4f",
-  mag7: "#ed86bd",
-};
-
-const LABEL_OFFSETS = { sp500: -5, ndx100: -6, mag7: 5 };
-
-const PANIC_WEIGHTS = {
-  sp500: { term_structure: 25, credit_velocity: 22, vvix: 20, breadth: 18, put_call: 15 },
-  ndx100: { vxn_ratio: 15, vxn_level: 15, credit_velocity: 25, breadth: 25, put_call: 20 },
-  mag7: { vxn_ratio: 15, vxn_level: 15, credit_velocity: 25, pairwise_corr: 25, put_call: 20 },
-};
-
-const FUNDAMENTALS_WEIGHTS = { revision_score: 60, revision_breadth: 40 };
-const ENTRY_ORDER = ["forward_pe", "equity_risk_premium_pts", "trailing_pe", "divergence_pts"];
-const TREND_SERIES = [
-  ["panic", "Panic", "#a8681d"],
-  ["fundamentals", "Earnings Health", "#527865"],
-  ["fundamental_discrepancy", "Dislocation Gap", "#397d9a"],
-];
-const MAX_DATA_AGE_BUSINESS_DAYS = 1;
-const DAY_MS = 24 * 60 * 60 * 1000;
-const QUADRANT_LABELS = {
-  normal: "Normal",
-  golden: "Candidate Dislocation",
-  trap: "Complacency Trap",
-  fire: "Real Fire",
-};
-const QUADRANT_COLORS = {
-  normal: "#669741",
-  golden: "#b66a18",
-  trap: "#397d9a",
-  fire: "#c44831",
-};
-
-const COMPONENTS = {
-  term_structure: ["VIX Term Structure", "Short-term VIX compared with three-month VIX. A deep, lasting inversion means investors want protection now.", "Cboe", "https://www.cboe.com/tradable-products/vix/term-structure"],
-  credit_velocity: ["Credit Spread Velocity", "How quickly high-yield borrowing costs changed over ten days. Fast widening means stress is spreading into credit.", "FRED HY OAS", "https://fred.stlouisfed.org/series/BAMLH0A0HYM2"],
-  vvix: ["VVIX", "The volatility of VIX itself. A high percentile means protection prices are becoming unstable.", "Yahoo Finance", "https://finance.yahoo.com/quote/%5EVVIX/"],
-  breadth: ["Breadth Washout", "The share of companies above their 200-day average, scored in reverse. Fewer survivors means broader selling.", "Yahoo constituent prices", "https://finance.yahoo.com/"],
-  put_call: ["Equity Put/Call", "Put volume compared with call volume. More puts usually mean more demand for downside protection.", "Cboe", "https://www.cboe.com/us/options/market_statistics/daily/"],
-  vxn_ratio: ["VXN / VIX", "Nasdaq volatility compared with broad-market volatility. A high score means fear is concentrated in growth and technology.", "Yahoo Finance", "https://finance.yahoo.com/quote/%5EVXN/"],
-  vxn_level: ["VXN Level", "The Nasdaq-100 implied-volatility percentile. Higher means near-term protection is more expensive.", "Yahoo Finance", "https://finance.yahoo.com/quote/%5EVXN/"],
-  pairwise_corr: ["Pairwise Correlation", "How closely the seven stocks move together over 20 days. High correlation can mean investors are selling the basket, not choosing stocks.", "Yahoo constituent prices", "https://finance.yahoo.com/"],
-  revision_score: ["EPS Revision Momentum", "Combines 30D, 60D, and 90D next-year EPS revisions at 50%, 30%, and 20%. Changes inside ±0.25% are neutral.", "Yahoo analyst trends", "https://finance.yahoo.com/"],
-  revision_breadth: ["Revision Breadth", "For broad indices, company breadth and sector breadth receive equal weight. Mag7 uses equal company weights. Neutral revisions receive half credit.", "Yahoo analyst trends", "https://finance.yahoo.com/"],
-  forward_pe: ["Forward P/E", "The price paid for the sampled index's next-year earnings. It is valuation context, not a judgment on business health.", "Yahoo estimates", "https://finance.yahoo.com/"],
-  trailing_pe: ["Trailing P/E", "The price paid for the sampled index's last twelve months of earnings. Compare it with forward P/E to understand embedded growth expectations.", "Yahoo estimates", "https://finance.yahoo.com/"],
-  equity_risk_premium_pts: ["Equity Risk Premium", "Forward earnings yield less the 10-year Treasury yield. A thin or negative premium means healthy earnings expectations may already be expensive.", "Yahoo + FRED", "https://fred.stlouisfed.org/series/DGS10"],
-  divergence_pts: ["EPS-Price Divergence", "Three-month EPS revision minus the three-month price return. Positive means price stress has outrun estimate damage.", "Yahoo estimates and prices", "https://finance.yahoo.com/"],
-};
-
-let payload;
-let timelinePayload;
-let selected = "sp500";
-let revealObserver;
-
-function visualCoordinate(panic, fundamentals) {
-  const u = panic <= 75 ? (panic / 75) * 0.5 : 0.5 + ((panic - 75) / 25) * 0.5;
-  const v = 1 - fundamentals / 100;
-  const topLeft = { x: 23.5, y: 13.5 };
-  const topRight = { x: 77.1, y: 13.6 };
-  const bottomLeft = { x: 7.5, y: 87.7 };
-  const bottomRight = { x: 92.9, y: 87.7 };
-  const left = { x: topLeft.x + (bottomLeft.x - topLeft.x) * v, y: topLeft.y + (bottomLeft.y - topLeft.y) * v };
-  const right = { x: topRight.x + (bottomRight.x - topRight.x) * v, y: topRight.y + (bottomRight.y - topRight.y) * v };
-  return { x: left.x + (right.x - left.x) * u, y: left.y + (right.y - left.y) * u };
-}
-
-function indicatorBand(score, group, key = "") {
-  if (group === "panic") {
-    const band = score >= 67 ? "high" : score >= 34 ? "mid" : "low";
-    return [`${band} pressure`, band];
+function validateStocks(payload) {
+  if (!payload || payload.schema_version !== 1 || payload.methodology !== M.METHOD ||
+      !Number.isFinite(Date.parse(payload.generated_at)) || !Array.isArray(payload.stocks) ||
+      payload.stocks.map(s => s.symbol).join() !== SYMBOLS.join()) throw new Error("Invalid stock evidence");
+  for (const s of payload.stocks) {
+    if (!["available", "limited", "unavailable"].includes(s.status) || typeof s.collected_at !== "string") throw new Error("Invalid stock status");
+    if (![s.name,s.sector,s.question,s.countercase,s.invalidation].every(x => typeof x === "string") ||
+        !Array.isArray(s.drivers) || !s.drivers.every(x => typeof x === "string") ||
+        !/^https:\/\//.test(s.ir) || s.collected_at !== payload.generated_at) throw new Error("Invalid stock metadata");
+    if (s.market && (![s.market.price, s.market.mood].every(Number.isFinite) || s.market.price <= 0 || s.market.mood < 0 || s.market.mood > 100 || !Array.isArray(s.market.history))) throw new Error("Invalid market evidence");
+    if (s.status === "available" && (!s.financials || !s.market || !Number.isFinite(s.market.market_cap))) throw new Error("Missing required stock evidence");
+    if (s.financials && ![s.financials.revenue,s.financials.operating_margin_pct,s.financials.cash,s.financials.debt,s.financials.free_cash_flow,s.financials.operating_cash_flow].every(Number.isFinite)) throw new Error("Invalid financial evidence");
   }
-  if (group === "fundamentals") {
-    if (score >= 60) return ["healthy evidence", "high"];
-    if (score > 40) return ["mixed evidence", "mid"];
-    return ["deteriorating", "low"];
-  }
-  if (key === "equity_risk_premium_pts") {
-    if (score > 2) return ["supportive premium", "high"];
-    if (score >= 0) return ["thin premium", "mid"];
-    return ["negative premium", "low"];
-  }
-  if (key === "divergence_pts") {
-    if (score > 0) return ["price leads down", "high"];
-    if (score >= -2) return ["roughly aligned", "mid"];
-    return ["price leads up", "low"];
-  }
-  return ["valuation context", "context"];
+  return payload;
 }
 
-function validatePayload(data) {
-  if (!data || !data.scopes) throw new Error("Missing market scopes");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.asof)
-      || !Number.isFinite(Date.parse(`${data.asof}T00:00:00Z`))
-      || typeof data.generated_at_utc !== "string"
-      || !Number.isFinite(Date.parse(data.generated_at_utc))) {
-    throw new Error("Invalid publication dates");
-  }
-  Object.keys(SCOPE_NAMES).forEach((scope) => {
-    const reading = data.scopes[scope];
-    if (!reading || ![reading.panic, reading.fundamentals, reading.fundamental_discrepancy].every(Number.isFinite)) {
-      throw new Error(`Invalid ${scope} headline reading`);
-    }
-    const coverage = reading.coverage;
-    const eps = reading.analyst_eps;
-    if (coverage?.fundamentals_ready !== true || ("panic_ready" in coverage && coverage.panic_ready !== true) || ![
-      coverage.fundamentals_pct,
-      coverage.entry_history_snapshot_count,
-      coverage.entry_history_snapshot_minimum,
-      eps?.analyst_eps_revision_30d_pct,
-      eps?.analyst_eps_up_breadth_30d_pct,
-    ].every(Number.isFinite) || ![
-      eps?.analyst_eps_revision_60d_pct,
-      eps?.analyst_eps_revision_90d_pct,
-    ].some(Number.isFinite)) {
-      throw new Error(`Invalid ${scope} supporting evidence`);
-    }
-    if (!reading.components?.panic || !reading.components?.fundamentals || !reading.components?.entry) {
-      throw new Error(`Invalid ${scope} component groups`);
-    }
-  });
-  return data;
-}
-
-function businessDayAge(asof, now = new Date()) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(asof)) throw new Error("Invalid as-of date");
-  const start = Date.parse(`${asof}T00:00:00Z`);
-  let cutoff = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  if (now.getUTCHours() < 21) cutoff -= DAY_MS;
-  while ([0, 6].includes(new Date(cutoff).getUTCDay())) cutoff -= DAY_MS;
-  if (!Number.isFinite(start) || start > cutoff) throw new Error("As-of date is in the future");
-  let age = 0;
-  for (let cursor = start + DAY_MS; cursor <= cutoff; cursor += DAY_MS) {
-    const weekday = new Date(cursor).getUTCDay();
-    if (weekday !== 0 && weekday !== 6) age += 1;
-  }
-  return age;
-}
-
-function requireFreshPayload(data, now = new Date()) {
-  const age = businessDayAge(data.asof, now);
-  if (age > MAX_DATA_AGE_BUSINESS_DAYS) {
-    const error = new Error(`Market data is ${age} business days old`);
-    error.code = "STALE_DATA";
-    error.age = age;
-    throw error;
-  }
-  return data;
-}
-
-function validateTimeline(data) {
-  if (!data || ![1, 2].includes(data.schema_version) || !data.scopes) throw new Error("Invalid timeline contract");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.methodology_start)
-      || !Number.isFinite(Date.parse(`${data.methodology_start}T00:00:00Z`))
-      || typeof data.generated_at_utc !== "string"
-      || !Number.isFinite(Date.parse(data.generated_at_utc))) {
-    throw new Error("Invalid timeline metadata");
-  }
-  Object.keys(SCOPE_NAMES).forEach((scope) => {
-    const points = data.scopes[scope];
-    if (!Array.isArray(points)) throw new Error(`Missing ${scope} timeline`);
-    let previous = "";
-    points.forEach((point) => {
-      if (!point || !/^\d{4}-\d{2}-\d{2}$/.test(point.date)
-          || !Number.isFinite(Date.parse(`${point.date}T00:00:00Z`))
-          || point.date <= previous) {
-        throw new Error(`Invalid ${scope} timeline order`);
-      }
-      if (![point.panic, point.fundamentals, point.fundamental_discrepancy].every(Number.isFinite)
-          || point.panic < 0 || point.panic > 100
-          || point.fundamentals < 0 || point.fundamentals > 100
-          || point.fundamental_discrepancy < -100 || point.fundamental_discrepancy > 100) {
-        throw new Error(`Invalid ${scope} timeline point`);
-      }
-      previous = point.date;
-    });
-  });
-  return data;
-}
-
-function publicLanguage(text) {
-  return String(text || "")
-    .replace(/Golden Zone/gi, "Candidate Dislocation")
-    .replace(/Fundamental Discrepancy/gi, "Dislocation Gap")
-    .replace(/Fundamentals Meter/gi, "Consensus Earnings Health")
-    .replace(/Fundamentals/gi, "Consensus Earnings Health");
-}
-
-function formatValue(key, value, group) {
-  if (group !== "entry") return value.toFixed(1);
-  if (key === "forward_pe" || key === "trailing_pe") return `${value.toFixed(1)}×`;
-  return `${value >= 0 ? "+" : ""}${value.toFixed(2)} pts`;
-}
-
-function renderPoints() {
-  const container = document.getElementById("map-points");
-  container.replaceChildren();
-  Object.entries(payload.scopes).forEach(([scope, reading]) => {
-    const position = visualCoordinate(reading.panic, reading.fundamentals);
-    const point = document.createElement("button");
-    point.type = "button";
-    point.className = "market-point";
-    point.style.left = `${position.x}%`;
-    point.style.top = `${position.y}%`;
-    point.style.setProperty("--point-color", SCOPE_COLORS[scope]);
-    point.dataset.scope = scope;
-    point.setAttribute("aria-label", `${SCOPE_NAMES[scope]}: Panic ${reading.panic}, Consensus Earnings Health ${reading.fundamentals}`);
-    point.addEventListener("click", () => selectScope(scope));
-
-    const label = document.createElement("span");
-    label.className = "point-label";
-    label.style.left = `${position.x}%`;
-    label.style.top = `${Math.max(8, position.y + LABEL_OFFSETS[scope])}%`;
-    label.textContent = `${SCOPE_NAMES[scope]}  ${Math.round(reading.panic)} / ${Math.round(reading.fundamentals)}`;
-    container.append(point, label);
-  });
-}
-
-function componentCard(scope, key, score, group, index) {
-  const [name, logic, source, url] = COMPONENTS[key];
-  const [bandLabel, band] = indicatorBand(score, group, key);
-  const shell = document.createElement("div");
-  shell.className = "component-shell reveal";
-  shell.style.setProperty("--index", index);
-
-  const article = document.createElement("article");
-  article.className = `component ${group} band-${band}`;
-  const top = document.createElement("div");
-  top.className = "component-top";
-  const badge = document.createElement("span");
-  badge.className = "component-badge";
-  badge.textContent = bandLabel;
-  const value = document.createElement("strong");
-  value.className = "component-score";
-  value.textContent = formatValue(key, score, group);
-  top.append(badge, value);
-
-  const heading = document.createElement("h4");
-  heading.textContent = name;
-  const measure = document.createElement("div");
-  if (group === "entry") {
-    measure.className = "entry-context";
-    measure.textContent = "EXCLUDED FROM CONSENSUS EARNINGS HEALTH";
-  } else {
-    measure.className = "component-bar";
-    const fill = document.createElement("span");
-    fill.style.transform = `scaleX(${Math.max(0, Math.min(100, score)) / 100})`;
-    measure.append(fill);
-  }
-
-  const description = document.createElement("p");
-  description.textContent = logic;
-  const detail = document.createElement("div");
-  detail.className = "component-meta";
-  const sourceLink = document.createElement("a");
-  sourceLink.href = url;
-  sourceLink.target = "_blank";
-  sourceLink.rel = "noreferrer";
-  sourceLink.textContent = source;
-  const weightLabel = document.createElement("span");
-  const weight = group === "panic" ? PANIC_WEIGHTS[scope][key] : FUNDAMENTALS_WEIGHTS[key];
-  weightLabel.textContent = group === "entry" ? "Entry context only" : `${weight}% weight`;
-  detail.append(sourceLink, weightLabel);
-  article.append(top, heading, measure, description, detail);
-  shell.append(article);
-  return shell;
-}
-
-function trendDomain(points) {
-  const values = points.flatMap((point) => TREND_SERIES.map(([key]) => point[key]));
-  return [Math.floor(Math.min(0, ...values) / 10) * 10,
-    Math.ceil(Math.max(0, ...values) / 10) * 10 || 10];
-}
-
-function trendPath(points, key, low, high) {
-  return points.map((point, index) => {
-    const x = 32 + index / Math.max(1, points.length - 1) * 438;
-    const y = 8 + (high - point[key]) / (high - low) * 112;
-    return `${index ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`;
-  }).join(" ");
-}
-
-function trendCard(scope, index) {
-  const points = timelinePayload.scopes[scope];
-  const [low, high] = trendDomain(points);
-  const latest = points[points.length - 1];
-  const shortDate = (date) => new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  const grid = [high, (high + low) / 2, low].map((value) => {
-    const y = 8 + (high - value) / (high - low) * 112;
-    return `<line x1="32" x2="470" y1="${y}" y2="${y}"/><text x="27" y="${y + 3}" text-anchor="end">${value}</text>`;
-  }).join("");
-  const lines = TREND_SERIES.map(([key, , color]) =>
-    `<path d="${trendPath(points, key, low, high)}" stroke="${color}"/>`
-  ).join("");
-  const legend = TREND_SERIES.map(([key, label, color]) =>
-    `<span style="--trend-color:${color}">${label} <strong>${latest[key].toFixed(1)}</strong></span>`
-  ).join("");
-  const shell = document.createElement("div");
-  shell.className = "component-shell trend-shell reveal";
-  shell.style.setProperty("--index", index);
-  shell.innerHTML = `<article class="component trend-card">
-    <div class="component-top"><span class="component-badge">${points.length} sessions</span><strong class="trend-date">${shortDate(latest.date)}</strong></div>
-    <h4>Three-Signal Trend</h4>
-    <div class="trend-chart"><svg viewBox="0 0 480 148" role="img" aria-label="${SCOPE_NAMES[scope]} Panic, Earnings Health, and Dislocation Gap from ${points[0].date} to ${latest.date}"><g class="trend-grid">${grid}</g><g class="trend-lines">${lines}</g><text x="32" y="142">${shortDate(points[0].date)}</text><text x="470" y="142" text-anchor="end">${shortDate(latest.date)}</text></svg></div>
-    <div class="trend-legend">${legend}</div>
-    <p>Headline readings since prospective EPS tracking began. Earlier Earnings Health and Gap values cannot be backfilled honestly.</p>
-    <div class="component-meta"><span>Full available history</span><span>Updates daily</span></div>
-  </article>`;
-  return shell;
-}
-
-function renderComponents(scope, reading) {
-  const panic = Object.entries(reading.components.panic).map(([key, score], index) => componentCard(scope, key, score, "panic", index));
-  const fundamentals = Object.entries(reading.components.fundamentals).map(([key, score], index) => componentCard(scope, key, score, "fundamentals", index));
-  const entry = ENTRY_ORDER.filter((key) => key in reading.components.entry).map((key, index) => componentCard(scope, key, reading.components.entry[key], "entry", index));
-  document.getElementById("panic-components").replaceChildren(...panic, trendCard(scope, panic.length));
-  document.getElementById("fundamentals-components").replaceChildren(...fundamentals);
-  document.getElementById("entry-components").replaceChildren(...entry);
-}
-
-function renderEvidence(reading) {
-  const evidence = document.getElementById("evidence-strip");
-  const eps = reading.analyst_eps;
-  const longHorizon = Number.isFinite(eps.analyst_eps_revision_90d_pct) ? 90 : 60;
-  const longRevision = eps[`analyst_eps_revision_${longHorizon}d_pct`];
-  const values = [
-    ["30D EPS", `${eps.analyst_eps_revision_30d_pct >= 0 ? "+" : ""}${eps.analyst_eps_revision_30d_pct.toFixed(2)}%`],
-    [`${longHorizon}D EPS`, `${longRevision >= 0 ? "+" : ""}${longRevision.toFixed(2)}%`],
-    ["Upgrade breadth", `${eps.analyst_eps_up_breadth_30d_pct.toFixed(1)}%`],
-  ];
-  evidence.replaceChildren(...values.map(([label, value]) => {
-    const item = document.createElement("span");
-    item.textContent = `${label} ${value}`;
-    return item;
-  }));
-}
-
-function selectScope(scope) {
-  selected = scope;
-  const reading = payload.scopes[scope];
-  document.querySelectorAll(".scope-tab, .market-point").forEach((element) => element.setAttribute("aria-pressed", String(element.dataset.scope === scope)));
-  const discrepancy = `${reading.fundamental_discrepancy >= 0 ? "+" : ""}${reading.fundamental_discrepancy.toFixed(1)}`;
-  const gap = reading.panic >= 70 ? ` · Active Dislocation Gap ${discrepancy}` : " · Gap inactive below Panic 70";
-  document.getElementById("selected-reading").textContent = `${SCOPE_NAMES[scope]} · Panic ${reading.panic.toFixed(1)} · Consensus Earnings Health ${reading.fundamentals.toFixed(1)}${gap}`;
-  document.querySelectorAll(".verdict-card").forEach((card) => card.classList.toggle("is-current", card.dataset.quadrant === reading.quadrant.code));
-  const currentVerdict = document.getElementById("current-verdict");
-  currentVerdict.style.setProperty("--current-color", QUADRANT_COLORS[reading.quadrant.code] || QUADRANT_COLORS.normal);
-  const transition = reading.quadrant.transition === "held" ? " · regime held until Panic clears 70" : "";
-  document.getElementById("current-verdict-state").textContent = `${SCOPE_NAMES[scope]} · ${QUADRANT_LABELS[reading.quadrant.code] || publicLanguage(reading.quadrant.label)}${transition}`;
-  document.getElementById("current-verdict-copy").textContent = publicLanguage(reading.verdict);
-  const coverage = reading.coverage;
-  const entryStatus = coverage.entry_history_snapshot_count >= coverage.entry_history_snapshot_minimum
-    ? "Three-month entry divergence is available."
-    : `Entry divergence is building: ${coverage.entry_history_snapshot_count}/${coverage.entry_history_snapshot_minimum} comparable daily endpoints.`;
-  const commonWeight = Number.isFinite(coverage.fundamentals_common_weight_pct)
-    ? ` · ${coverage.fundamentals_common_weight_pct}% common-horizon proxy weight.`
-    : "";
-  const panicDate = coverage.panic_asof ? ` Panic inputs as of ${coverage.panic_asof}.` : "";
-  const basis = reading.data_quality?.eps_revision_basis
-    ? ` EPS history basis: ${reading.data_quality.eps_revision_basis}.`
-    : "";
-  document.getElementById("warmup").textContent = `Consensus Earnings Health ready · ${coverage.fundamentals_pct}% market-cap-proxy coverage.${commonWeight}${panicDate}${basis} ${entryStatus}`;
-  renderEvidence(reading);
-  renderComponents(scope, reading);
-  observeReveals();
-}
-
-function observeReveals() {
-  const elements = document.querySelectorAll(".reveal:not([data-observed])");
-  if (!("IntersectionObserver" in window)) {
-    elements.forEach((element) => element.classList.add("is-visible"));
+function renderContext(payload) {
+  const target = document.getElementById("market-context");
+  if (!payload || !payload.scopes || M.marketAge(payload.asof) > 1) {
+    target.innerHTML = `<p class="context-empty">Index observations are ${payload?.asof ? `dated ${esc(payload.asof)} and currently stale` : "unavailable"}. Live readings are withheld. Stock observations have independent timestamps.</p>`;
     return;
   }
-  revealObserver ||= new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add("is-visible");
-        revealObserver.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.12 });
-  elements.forEach((element) => {
-    element.dataset.observed = "true";
-    revealObserver.observe(element);
+  target.innerHTML = Object.entries(SCOPE_NAMES).map(([key, name]) => {
+    const s = payload.scopes[key];
+    if (!s || ![s.panic,s.fundamentals].every(Number.isFinite)) return `<p class="context-empty">${name}: unavailable</p>`;
+    return `<article class="context-reading"><div class="context-name">${name}<span>${esc(payload.asof)}</span></div><div class="context-metrics"><div><strong>${s.panic.toFixed(0)}</strong><small>Panic / 100</small></div><div><strong>${s.fundamentals.toFixed(0)}</strong><small>Revisions / 100</small></div></div></article>`;
+  }).join("");
+}
+
+function renderOverview() {
+  const points = [], rows = [];
+  let ready = 0;
+  for (const s of data.stocks) {
+    const state = M.classify(s), e = M.evidence(s), r = M.resilience(s), m = s.market;
+    const v = e.ready ? M.value(s, M.defaults(s)) : null;
+    const color = r.code === "resilient" ? "green" : r.code === "weakening" ? "red" : "amber";
+    if (e.ready && v) {
+      ready++;
+      const x = m.mood, y = Math.max(0, Math.min(100, 50 - v.upside / 120 * 100));
+      const lane = y > 88 ? -21 : y < 12 ? 21 : points.length % 2 === 0 ? -21 : 21;
+      points.push(`<button type="button" class="map-point ${r.code} ${s.symbol === selected ? "selected" : ""}" style="left:clamp(14px,${x}%,calc(100% - 14px));top:clamp(14px,${y}%,calc(100% - 14px));--label-offset:${lane}px" data-symbol="${s.symbol}" aria-label="${s.symbol}: mood ${m.mood.toFixed(0)}, reference upside ${pct(v.upside)}, ${r.label}. Open research." title="${s.symbol} · ${pct(v.upside)} reference upside · mood ${m.mood.toFixed(0)}"><i aria-hidden="true"></i><span>${s.symbol}</span></button>`);
+    }
+    if (filter === "discount" && !["fear","fragile","discount"].includes(state.code)) continue;
+    if (filter === "premium" && !["optimism","demanding"].includes(state.code)) continue;
+    if (filter === "unclear" && state.code !== "unclear") continue;
+    const priceFresh = m && M.marketAge(m.price_date) <= 1;
+    rows.push(`<tr data-symbol="${s.symbol}" class="${s.symbol === selected ? "selected" : ""}"><td><div class="ticker-cell"><span class="ticker-icon">${s.symbol.slice(0,2)}</span><span><strong>${s.symbol}</strong><small>${esc(s.name)}</small></span></div></td><td class="price-cell"><strong>${priceFresh ? money(m.price) : "Withheld"}</strong><small class="${priceFresh ? sign(m.change_1d_pct) : "muted"}">${priceFresh ? pct(m.change_1d_pct) : esc(m?.price_date || "No quote")}</small></td><td>${priceFresh ? `<div class="mood-number"><strong>${m.mood.toFixed(0)}</strong>${moodLabel(m.mood)}</div><div class="mood-track"><i style="left:${m.mood}%"></i></div>` : "Unavailable"}</td><td>${badge(e.ready ? r.label : e.label,e.ready ? color : "neutral")}</td><td class="${v ? sign(v.upside) : "muted"}">${v ? pct(v.upside) : "Unclassified"}</td><td>${badge(state.label,state.tone)}</td><td><button type="button" class="row-open" data-symbol="${s.symbol}" aria-label="Open ${esc(s.name)} research">↗</button></td></tr>`);
+  }
+  document.getElementById("map-points").innerHTML = points.join("") || '<p class="map-empty">No fresh, complete stock evidence. Research framework remains available below.</p>';
+  document.getElementById("map-coverage").textContent = `${ready}/7 positioned · Points beyond the scale are pinned to its edge.`;
+  document.getElementById("watchlist-body").innerHTML = rows.join("") || '<tr><td colspan="7" class="empty-state">No stocks meet this filter.</td></tr>';
+  document.getElementById("stock-tabs").innerHTML = data.stocks.map(s => `<button type="button" data-symbol="${s.symbol}" aria-pressed="${s.symbol === selected}">${s.symbol}</button>`).join("");
+}
+
+function sparkline(history) {
+  if (!history?.length) return "";
+  const values = history.map(p => p.close), low = Math.min(...values), high = Math.max(...values);
+  const points = values.map((v, i) => `${i / Math.max(1,values.length-1) * 300},${46 - (v-low) / (high-low || 1) * 40}`).join(" ");
+  return `<svg class="sparkline" viewBox="0 0 300 52" preserveAspectRatio="none" role="img" aria-label="Closing prices from ${esc(history[0].date)} to ${esc(history.at(-1).date)}"><polyline points="${points}" fill="none" stroke="${values.at(-1) >= values[0] ? "#b6dd84" : "#deb77b"}" stroke-width="1.7" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function renderDetail() {
+  const s = data.stocks.find(x => x.symbol === selected), e = M.evidence(s), r = M.resilience(s), state = M.classify(s);
+  const m = s.market, f = s.financials, estimate = s.estimates;
+  const priceFresh = m && M.marketAge(m.price_date) <= 1;
+  document.title = `${s.symbol} Research | Reality Sentiment Engine`;
+  const metric = (label, value, sub = "") => `<div><dt>${label}</dt><dd>${value}${sub ? `<small>${sub}</small>` : ""}</dd></div>`;
+  document.getElementById("stock-detail").innerHTML = `<div class="company-head"><div><p class="eyebrow">${esc(s.sector)}</p><h3>${esc(s.name)}<span>${s.symbol} / USD</span></h3>${badge(e.label,e.ready ? "green" : "amber")}</div><div class="company-quote"><strong>${priceFresh ? money(m.price) : "Withheld"}</strong><small>${m ? `Close ${esc(m.price_date)}` : "No quote available"}</small></div></div>
+    <div class="stock-summary"><div class="summary-cell"><p class="eyebrow">REFERENCE SETUP</p>${badge(state.label,state.tone)}<p>${state.detail}</p></div><div class="summary-cell"><p class="eyebrow">MARKET MOOD</p><h4>${priceFresh ? `${m.mood.toFixed(0)} / 100 · ${moodLabel(m.mood)}` : "Reading withheld"}</h4><p>${priceFresh ? `${pct(m.return_3m_pct)} over three months · ${pct(m.relative_return_3m_pts)} relative to SPY.` : "A fresh closing observation is required."}</p>${priceFresh ? sparkline(m.history) : ""}</div><div class="summary-cell"><p class="eyebrow">BUSINESS RESILIENCE</p><h4>${e.ready ? r.label : "Review dated evidence"}</h4><p>${r.detail}</p><p class="small">Historical financial screen. Competitive moat remains a research judgment.</p></div></div>
+    <div class="evidence-grid"><section class="panel evidence-card"><p class="eyebrow">WHAT THE NUMBERS SAY</p><h3>Business evidence</h3>${f ? `<dl class="metric-grid">${metric("Revenue / trailing 12 months",billions(f.revenue))}${metric("Latest-quarter sales growth",pct(f.revenue_growth_yoy_pct),"Year over year")}${metric("Operating margin / TTM",`${f.operating_margin_pct.toFixed(1)}%`)}${metric("Latest-quarter margin change",Number.isFinite(f.margin_change_yoy_pts) ? `${f.margin_change_yoy_pts > 0 ? "+" : ""}${f.margin_change_yoy_pts.toFixed(1)} pts` : "Unavailable","Year over year")}${metric("Free cash flow / TTM",billions(f.free_cash_flow),"Operating cash flow less capex")}${metric("Net cash / (net debt)",billions(f.cash-f.debt))}${metric("Capital spending / TTM",billions(f.capex))}${metric("Stock compensation / TTM",billions(f.sbc),"Cash-flow dilution context")}${metric("Consensus EPS revision / 30D",pct(estimate?.revision_30d_pct),estimate ? `Fiscal target ${esc(estimate.target_end)}` : "No comparable estimate target")}</dl>` : '<p class="muted">Financial statements are incomplete. No resilience or valuation classification is published.</p>'}<p class="source-line">${f ? `TTM through ${esc(f.period_end)} · Balance sheet ${esc(f.balance_date)}<br>` : ""}Collected ${esc(s.collected_at.replace("T"," "))}<br><a href="https://finance.yahoo.com/quote/${s.symbol}/financials/" target="_blank" rel="noopener noreferrer">Financial statements ↗</a> · <a href="${esc(s.ir)}" target="_blank" rel="noopener noreferrer">Company disclosures ↗</a><br>Collection time is not the update time of each underlying analyst estimate.</p></section>
+    <aside class="panel challenge-card"><p class="eyebrow">CHALLENGE YOUR CONVICTION</p><h3>${esc(s.question)}</h3><ul class="driver-list">${s.drivers.map(d => `<li>${esc(d)}</li>`).join("")}</ul><h4>Strongest counterargument to inspect</h4><p>${esc(s.countercase)}</p><h4>What would break the thesis?</h4><p>${esc(s.invalidation)}</p><p class="source-line">Standing research questions, not a claim about today's news or the cause of a price move.</p></aside></div>
+    <section class="panel change-panel"><p class="eyebrow">WHAT CHANGED?</p><div><strong>${priceFresh ? pct(m.return_1w_pct) : "Withheld"}</strong><p>Price return over five sessions.</p></div><div>${s.previous_observation && f ? `<strong>${pct((f.revenue / s.previous_observation.revenue - 1)*100)}</strong><p>Change in reported TTM revenue versus the saved ${esc(s.previous_observation.date)} observation. Fiscal endpoint then: ${esc(s.previous_observation.period_end)}. This may reflect a new reporting period or a source revision.</p>` : '<strong>First observations</strong><p>Financial comparisons begin after a prior 7–14 day observation exists. No historical business evidence is reconstructed.</p>'}</div></section>`;
+  assumptions = M.defaults(s);
+  document.getElementById("lab").hidden = !assumptions || !e.ready;
+  if (assumptions && e.ready) { renderControls(); renderValuation(); }
+}
+
+const CONTROLS = [
+  ["growth","Revenue growth / 5Y",-10,60,.5,"%"], ["margin","Year-five operating margin",0,70,.5,"%"],
+  ["discount","Discount rate / WACC",6,20,.25,"%"], ["terminal","Terminal growth",0,4,.25,"%"],
+  ["capital","Sales-to-capital",.5,5,.1,"×"], ["tax","Normalized tax rate",0,40,1,"%"],
+];
+
+function renderControls() {
+  document.getElementById("assumption-controls").innerHTML = CONTROLS.map(([key,label,min,max,step,unit]) => `<div class="control"><label for="input-${key}">${label}<output id="output-${key}" for="input-${key}">${assumptions[key].toFixed(unit === "×" ? 1 : 2)}${unit}</output></label><input type="range" id="input-${key}" data-assumption="${key}" min="${min}" max="${max}" step="${step}" value="${assumptions[key]}" aria-describedby="hint-${key}"><div class="bounds" id="hint-${key}"><span>${min}${unit}</span><span>${max}${unit}</span></div></div>`).join("");
+}
+
+function renderValuation() {
+  const s = data.stocks.find(x => x.symbol === selected), results = M.scenarios(s,assumptions);
+  const output = document.getElementById("valuation-output");
+  if (!results?.base) { output.innerHTML = '<p class="error-note">Invalid assumptions. Discount rate must exceed terminal growth.</p>'; return; }
+  const {bear,base,bull} = results, implied = M.impliedGrowth(s,assumptions);
+  const roots = implied?.roots || [], growthText = roots.length === 1 ? `${roots[0].toFixed(1)}%` : roots.length > 1 ? "Multiple paths" : "Outside range";
+  const growthDetail = roots.length === 1 ? `Five-year revenue CAGR that justifies today's price, holding your other assumptions fixed.` : roots.length > 1 ? `More than one growth rate clears today's price. Reinvestment makes the relationship non-monotonic.` : "No growth rate from −10% to 60% clears today's price under these margin and reinvestment assumptions.";
+  const min = Math.min(bear.price,base.price,bull.price), max = Math.max(bear.price,base.price,bull.price);
+  const marker = Math.max(0,Math.min(100,(s.market.price-min)/(max-min || 1)*100));
+  const custom = CONTROLS.some(([key]) => Math.abs(assumptions[key]-M.defaults(s)[key]) > .001);
+  document.getElementById("model-status").textContent = custom ? "YOUR SCENARIO" : "REFERENCE SCENARIO";
+  const scenario = (label,v) => `<div><small>${label}</small><strong>${money(v.price)}</strong><span>${pct(v.upside)} vs close</span></div>`;
+  output.innerHTML = `<div class="valuation-main"><div><p class="eyebrow">MODEL VALUE / SHARE</p><div class="valuation-number">${money(base.price)}</div><p class="valuation-caption"><span class="${sign(base.upside)}">${pct(base.upside)} versus ${money(s.market.price)}</span><br>Scenario output, not a price target.</p></div><div class="implied-box"><p class="eyebrow">GROWTH REQUIRED BY PRICE</p><div class="implied-number">${growthText}</div><p>${growthDetail}</p></div></div><div class="range-chart"><div class="scenario-grid">${scenario("Bear",bear)}${scenario(custom ? "Your case" : "Reference",base)}${scenario("Bull",bull)}</div><div class="range-line"><i style="left:${marker}%" aria-hidden="true"></i></div><p class="range-caption">White marker: current close ${money(s.market.price)}${s.market.price < min || s.market.price > max ? " (outside scenario range; pinned to edge)" : ""}. Range reflects assumptions, not statistical confidence.</p></div><p class="model-warning">${base.terminalShare !== null ? `${base.terminalShare.toFixed(0)}% of enterprise value comes from the terminal period. ` : "Terminal economics produce no positive enterprise value. "}Test reinvestment, taxes and discount rate before relying on the result. Defaults are mechanical, unreviewed assumptions.</p>`;
+  document.getElementById("cashflow-table").innerHTML = `<table class="comparison-table"><caption class="sr-only">Five-year forecast in billions of US dollars</caption><thead><tr><th>Year</th><th>Revenue</th><th>Margin</th><th>Reinvestment</th><th>FCFF</th></tr></thead><tbody>${base.flows.map(f => `<tr><td>${f.year}</td><td>${billions(f.revenue)}</td><td>${(f.margin*100).toFixed(1)}%</td><td>${billions(f.reinvestment)}</td><td>${billions(f.fcff)}</td></tr>`).join("")}</tbody></table>`;
+}
+
+function selectStock(symbol, scroll = false) {
+  if (!SYMBOLS.includes(symbol) || !data) return;
+  selected = symbol;
+  history.replaceState(null,"",`#stock=${symbol}`);
+  renderOverview(); renderDetail();
+  if (scroll) document.getElementById("research").scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+}
+
+async function init() {
+  document.getElementById("state-filter").addEventListener("change",e => { filter=e.target.value; if (data) renderOverview(); });
+  document.addEventListener("click",e => {
+    const button=e.target.closest("[data-symbol]");
+    if (button) selectStock(button.dataset.symbol,!button.closest("#stock-tabs"));
   });
-}
-
-function render() {
-  const generated = new Date(payload.generated_at_utc);
-  document.getElementById("asof").textContent = `Data as of ${payload.asof} · Updated ${generated.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`;
-  document.getElementById("scope-tabs").replaceChildren(...Object.keys(payload.scopes).map((scope) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "scope-tab";
-    button.dataset.scope = scope;
-    button.style.setProperty("--scope-color", SCOPE_COLORS[scope]);
-    button.textContent = SCOPE_NAMES[scope];
-    button.addEventListener("click", () => selectScope(scope));
-    return button;
-  }));
-  renderPoints();
-  selectScope(selected);
-}
-
-function renderDataFailure(error) {
-  const stale = error?.code === "STALE_DATA";
-  document.getElementById("asof").textContent = stale
-    ? `Signal withheld · ${error.age} business days stale`
-    : "Market data is temporarily unavailable";
-  document.getElementById("selected-reading").textContent = "No live portfolio signal";
-  document.getElementById("current-verdict-state").textContent = "Signal withheld";
-  document.getElementById("current-verdict-copy").textContent = "Refresh and validate the market and earnings data before using this screen.";
-  document.getElementById("warmup").textContent = stale
-    ? "The market date is outside the one-business-day freshness window."
-    : "The latest reading did not pass the public data contract.";
-  observeReveals();
-}
-
-if (typeof document !== "undefined") {
-  const loadJson = (url) => fetch(url, { cache: "no-store" }).then((response) => {
-    if (!response.ok) throw new Error(`${url} unavailable`);
-    return response.json();
+  document.getElementById("assumption-controls").addEventListener("input",e => {
+    const key=e.target.dataset.assumption;
+    if (!CONTROLS.some(c=>c[0]===key)) return;
+    assumptions[key]=Number(e.target.value);
+    const unit=CONTROLS.find(c=>c[0]===key)[5];
+    document.getElementById(`output-${key}`).textContent=`${assumptions[key].toFixed(unit === "×" ? 1 : 2)}${unit}`;
+    renderValuation();
   });
-  Promise.all([loadJson("data/scores.json"), loadJson("data/timeline.json")])
-    .then(([scores, timeline]) => {
-      timelinePayload = validateTimeline(timeline);
-      payload = requireFreshPayload(validatePayload(scores));
-      render();
-    })
-    .catch(renderDataFailure);
-}
-
-if (typeof module !== "undefined") {
-  module.exports = { businessDayAge, indicatorBand, publicLanguage, requireFreshPayload, trendDomain, trendPath, validatePayload, validateTimeline, visualCoordinate };
-  if (require.main === module) {
-    const assert = require("node:assert/strict");
-    const fs = require("node:fs");
-    const data = JSON.parse(fs.readFileSync("data/scores.json", "utf8"));
-    validatePayload(data);
-    if (fs.existsSync("data/timeline.json")) validateTimeline(JSON.parse(fs.readFileSync("data/timeline.json", "utf8")));
-    assert.equal(indicatorBand(80, "panic")[0], "high pressure");
-    assert.equal(indicatorBand(50, "fundamentals")[0], "mixed evidence");
-    const trendFixture = [{ panic: 20, fundamentals: 80, fundamental_discrepancy: -11 }, { panic: 40, fundamentals: 90, fundamental_discrepancy: 30 }];
-    assert.deepEqual(trendDomain(trendFixture), [-20, 90]);
-    assert.match(trendPath(trendFixture, "panic", 0, 100), /^M32\.0 97\.6 L470\.0 75\.2$/);
-    assert.ok(visualCoordinate(80, 80).y < visualCoordinate(80, 30).y);
-    assert.equal(publicLanguage("Golden Zone / Fundamentals"), "Candidate Dislocation / Consensus Earnings Health");
-    assert.equal(businessDayAge("2026-07-17", new Date("2026-07-20T12:00:00Z")), 0);
-    assert.equal(businessDayAge("2026-07-16", new Date("2026-07-21T20:59:00Z")), 2);
-    assert.equal(businessDayAge("2026-07-16", new Date("2026-07-21T21:00:00Z")), 3);
-    const staleFixture = { asof: "2026-07-16" };
-    assert.throws(() => requireFreshPayload(staleFixture, new Date("2026-07-21T20:59:00Z")), { code: "STALE_DATA" });
-    assert.throws(() => requireFreshPayload(staleFixture, new Date("2026-07-21T21:00:00Z")), { code: "STALE_DATA" });
+  document.getElementById("reset-model").addEventListener("click",()=>{if(data) {assumptions=M.defaults(data.stocks.find(s=>s.symbol===selected));renderControls();renderValuation();}});
+  const fetchJSON=async url=>{const response=await fetch(url,{cache:"no-cache"});if(!response.ok)throw new Error("Publication unavailable");return response.json();};
+  const [stocks,context]=await Promise.allSettled([fetchJSON("data/stocks.json"),fetchJSON("data/scores.json")]);
+  renderContext(context.status === "fulfilled" ? context.value : null);
+  try {
+    if(stocks.status !== "fulfilled") throw new Error("Stock publication unavailable");
+    data=validateStocks(stocks.value);
+    const fromHash=location.hash.match(/^#stock=([A-Z]+)$/)?.[1];
+    if(SYMBOLS.includes(fromHash)) selected=fromHash;
+    document.getElementById("publication").textContent=`Stock evidence collected ${data.generated_at.slice(0,10)} · after US close`;
+    const stale=data.stocks.filter(s=>!M.evidence(s).ready).length;
+    if(stale) document.getElementById("load-status").innerHTML=`<p class="error-note">${stale} of 7 companies have stale or incomplete evidence. Their classifications are withheld; dated financial observations remain inspectable.</p>`;
+    renderOverview();renderDetail();
+  } catch {
+    document.getElementById("load-status").innerHTML='<p class="error-note">Stock evidence is unavailable or failed validation. No substitute scores are shown. Please return after the next successful scheduled publication.</p>';
+    document.getElementById("map-points").innerHTML='<p class="map-empty">Stock classifications unavailable.</p>';
+    document.getElementById("watchlist-body").innerHTML='<tr><td colspan="7" class="empty-state">No validated stock publication.</td></tr>';
+    document.getElementById("stock-detail").innerHTML='<p class="muted">Research calculations require a validated stock publication. Read the methodology below.</p>';
   }
 }
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports={validateStocks};
+  if(require.main===module) {
+    const fs=require("node:fs");
+    const stocks=validateStocks(JSON.parse(fs.readFileSync(require("node:path").join(__dirname,"data/stocks.json"),"utf8")));
+    for(const s of stocks.stocks) if(s.status === "available" && M.defaults(s) && !M.value(s,M.defaults(s))) throw new Error(`Invalid model for ${s.symbol}`);
+    console.log("Stock dashboard bindings and reference valuations validated");
+  }
+} else init();

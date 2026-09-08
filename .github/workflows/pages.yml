@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   workflow_run:
-    workflows: [daily-scores]
+    workflows: [daily-scores, stock-research]
     types: [completed]
 
 permissions:
@@ -29,14 +29,17 @@ jobs:
       - name: Check public market data
         run: python -m pipeline.public_output data/scores.json data/timeline.json
       - name: Check website data bindings
-        run: node app.js
+        run: |
+          node app.js
+          node tests/test_model.js
       - name: Prepare public website files
         run: |
           mkdir _site
-          cp index.html styles.css app.js _site/
-          cp -R assets _site/
+          cp index.html about.html styles.css app.js model.js _site/
+          mkdir _site/assets
+          cp assets/favicon.svg _site/assets/
           mkdir _site/data
-          cp data/scores.json data/timeline.json _site/data/
+          cp data/scores.json data/timeline.json data/stocks.json _site/data/
           touch _site/.nojekyll
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

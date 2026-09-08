@@ -1,0 +1,50 @@
+name: stock-research
+
+on:
+  schedule:
+    - cron: "45 21 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-data-refresh
+  cancel-in-progress: false
+
+jobs:
+  stock-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Test research logic
+        run: |
+          python -m unittest discover -s tests -q
+          node tests/test_model.js
+      - name: Collect dated stock evidence
+        run: python -m pipeline.stocks
+      - name: Validate publication
+        run: |
+          python -m pipeline.stocks --validate
+          node app.js
+          node tests/test_model.js
+      - name: Publish stock observations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth setup-git
+          git config user.name "sentiment-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -- data/stocks.json data/stock_observations/
+          if ! git diff --cached --quiet; then
+            git commit -m "Stock research observations $(date -u +%F)"
+            git push
+          fi

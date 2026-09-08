@@ -149,7 +149,7 @@ def fundamental_health(snapshot: dict) -> dict | None:
 
 
 def fundamental_discrepancy(panic: float, fundamentals: float) -> float:
-    """Positive when market stress exceeds the damage visible in EPS trends."""
+    """Legacy arithmetic retained for history compatibility, not a valuation gap."""
     return fundamentals + panic - 100
 
 
@@ -161,13 +161,13 @@ def quadrant(panic: float, fundamentals: float, previous_code: str | None = None
     )
     healthy = fundamentals >= config.FUNDAMENTALS_SPLIT
     if hot and healthy:
-        code, label = "golden", "CANDIDATE DISLOCATION: fear exceeds earnings damage"
+        code, label = "golden", "CANDIDATE DISLOCATION: elevated stress, resilient consensus revisions"
     elif hot:
-        code, label = "fire", "REAL FIRE: fundamentals breaking, respect it"
+        code, label = "fire", "EARNINGS WARNING: elevated stress, weakening consensus revisions"
     elif not healthy:
-        code, label = "trap", "COMPLACENCY TRAP: calm surface, deteriorating floor"
+        code, label = "trap", "REVISION WARNING: lower stress, weakening consensus revisions"
     else:
-        code, label = "normal", "NORMAL: no edge from sentiment, do bottom-up work"
+        code, label = "normal", "NORMAL: lower stress, resilient consensus revisions"
     transition = (
         "entered" if hot and not was_hot
         else "held" if hot
@@ -182,7 +182,7 @@ def verdict(panic: float, fundamentals: float, discrepancy: float,
     q = (state or quadrant(panic, fundamentals))["code"]
     if q == "golden":
         return (f"Panic {panic:.0f} / Consensus Earnings Health "
-                f"{fundamentals:.0f}, Discrepancy {discrepancy:+.1f}pts. "
+                f"{fundamentals:.0f}. "
                 "Candidate dislocation for valuation and risk review, not an "
                 "automatic deployment signal.")
     if q == "fire":

@@ -1,12 +1,16 @@
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
 from backtest.build_history import lag_monthly_publication, next_close_forward_return
 from backtest.run_backtest import (
+    PANIC_COLS,
     REALITY_COLS,
+    block_bootstrap_ic,
     bootstrap_compare,
+    optimize_joint_weights,
     passes_promotion_gate,
     promotion_decision,
     purged_training_mask,
@@ -37,6 +41,23 @@ class BacktestTests(unittest.TestCase):
 
         self.assertTrue(mask.iloc[63])
         self.assertFalse(mask.iloc[64])
+
+    def test_ic_bootstrap_accepts_exactly_one_block(self):
+        values = np.arange(63, dtype=float)
+
+        interval = block_bootstrap_ic(values, values, block=63, n=2)
+
+        np.testing.assert_allclose(interval, [1, 1])
+
+    def test_optimizer_rejects_a_dataset_with_no_valid_candidates(self):
+        dates = pd.bdate_range("2016-01-01", periods=100)
+        pctls = pd.DataFrame(0.0, index=dates, columns=[*PANIC_COLS, *REALITY_COLS])
+        target = pd.Series(0.01, index=dates)
+
+        with patch("backtest.run_backtest.OPTIMIZER_DRAWS", 1_000), \
+                patch("backtest.run_backtest.OPTIMIZER_TOP_N", 1):
+            with self.assertRaisesRegex(ValueError, "found 0 valid candidates"):
+                optimize_joint_weights(pctls, target)
 
     def test_shiller_proxy_is_delayed_three_months(self):
         earnings = pd.Series([100.0], index=pd.to_datetime(["2020-01-01"]))

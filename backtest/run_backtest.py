@@ -76,7 +76,7 @@ def block_bootstrap_ic(x, y, block=63, n=2000, seed=7):
     rng = np.random.default_rng(seed)
     n_blocks = max(1, len(x) // block)
     for _ in range(n):
-        starts = rng.integers(0, len(x) - block, size=n_blocks)
+        starts = rng.integers(0, len(x) - block + 1, size=n_blocks)
         take = np.concatenate([idx[s:s + block] for s in starts])
         ic, _ = spearmanr(x[take], y[take], nan_policy="omit")
         ics.append(ic)
@@ -186,6 +186,10 @@ def optimize_joint_weights(pctls: pd.DataFrame, target: pd.Series):
              & (metrics["2019-2021"]["n"] >= 25)
              & (metrics["train"]["n"] >= 35)
              & (metrics["train"]["n"] <= 150))
+    if valid.sum() < OPTIMIZER_TOP_N:
+        raise ValueError(
+            f"optimizer found {valid.sum()} valid candidates; need {OPTIMIZER_TOP_N}"
+        )
     score = (.30 * regime_score("2016-2018")
              + .50 * regime_score("2019-2021")
              + .20 * regime_score("train")

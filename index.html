@@ -1,127 +1,27 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self'; form-action 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'">
-  <meta name="referrer" content="no-referrer">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A market sentiment map that separates crowd panic from consensus earnings health.">
-  <meta name="theme-color" content="#050606">
-  <title>Reality Sentiment Engine</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <header class="site-header">
-    <a class="brand" href="#top" aria-label="Reality Sentiment Engine home">
-      <span class="brand-mark" aria-hidden="true"></span>
-      Reality Sentiment Engine
-    </a>
-    <p class="asof" id="asof">Loading market data…</p>
-  </header>
-
-  <main id="top">
-    <section class="hero" aria-labelledby="hero-title">
-      <div class="hero-copy">
-        <div>
-          <p class="eyebrow">PANIC × EARNINGS HEALTH</p>
-          <h1 id="hero-title">Fear Is Loud. Expectations Clarify.</h1>
-        </div>
-        <p class="intro">Price stress moves left to right. Consensus earnings health moves bottom to top. One landscape shows whether fear is useful, justified, or dangerously absent.</p>
-      </div>
-
-      <div class="hero-toolbar">
-        <div class="scope-tabs" id="scope-tabs" role="group" aria-label="Choose a market"></div>
-        <div class="reading-stack">
-          <div class="selected-reading" id="selected-reading" aria-live="polite"></div>
-          <div class="evidence-strip" id="evidence-strip"></div>
-        </div>
-      </div>
-
-      <div class="map-shell">
-        <img class="quadrant-image" src="assets/quadrant-map.png" alt="A four-quadrant market map with Normal, Candidate Dislocation, Complacency Trap, and Real Fire states." width="1672" height="941" fetchpriority="high">
-        <div class="zone-label normal"><strong>Normal</strong><span>No sentiment edge</span></div>
-        <div class="zone-label golden"><strong>Candidate Dislocation</strong><span>Fear exceeds damage</span></div>
-        <div class="zone-label trap"><strong>Complacency Trap</strong><span>Damage beneath calm</span></div>
-        <div class="zone-label fire"><strong>Real Fire</strong><span>Fear confirms damage</span></div>
-        <div class="map-points" id="map-points" aria-label="Current market positions"></div>
-        <div class="axis fundamentals-axis" aria-label="Healthy consensus earnings are higher; deteriorating consensus earnings are lower"><span>Healthy earnings</span><i aria-hidden="true"></i><span>Deteriorating earnings</span></div>
-        <div class="axis fear-axis" aria-label="Fear increases to the right"><span>Less fear</span><i aria-hidden="true"></i><span>More fear</span></div>
-      </div>
-
-      <div class="hero-foot">
-        <p class="warmup" id="warmup"></p>
-      </div>
-    </section>
-
-    <div class="report-shell">
-    <section class="verdict-section report-section reveal" aria-labelledby="meaning-title">
-      <div class="section-number" aria-hidden="true">01</div>
-      <div class="section-heading">
-        <p class="eyebrow">READ THE MAP</p>
-        <h2 id="meaning-title">What Does Each Quadrant Mean?</h2>
-        <p>Each zone translates the relationship between market fear and consensus earnings health into one clear research response.</p>
-      </div>
-      <aside class="current-verdict" id="current-verdict" aria-live="polite">
-        <span id="current-verdict-state">Loading verdict</span>
-        <p id="current-verdict-copy">The current market guidance will appear with validated data.</p>
-      </aside>
-      <div class="verdict-grid">
-        <div class="card-shell normal-shell"><article class="verdict-card normal-verdict" data-quadrant="normal"><div class="verdict-top"><span>Normal</span><small>No edge</small></div><p>Let stock selection, not market mood, drive the decision.</p></article></div>
-        <div class="card-shell golden-shell"><article class="verdict-card golden-verdict" data-quadrant="golden"><div class="verdict-top"><span>Candidate Dislocation</span><small>Research next</small></div><p>Fear is extreme while EPS revisions remain healthy. Check valuation, rates, and company-level evidence before considering deployment.</p></article></div>
-        <div class="card-shell trap-shell"><article class="verdict-card trap-verdict" data-quadrant="trap"><div class="verdict-top"><span>Complacency Trap</span><small>Hidden risk</small></div><p>Calm prices hide weakening EPS revisions. Investigate estimate risk instead of treating calm as safety.</p></article></div>
-        <div class="card-shell fire-shell"><article class="verdict-card fire-verdict" data-quadrant="fire"><div class="verdict-top"><span>Real Fire</span><small>Damage confirmed</small></div><p>Fear and earnings damage agree. Require stabilization before treating the setup as a candidate.</p></article></div>
-      </div>
-    </section>
-
-    <section class="components-section report-section reveal" aria-labelledby="components-title">
-      <div class="section-number" aria-hidden="true">02</div>
-      <div class="section-heading">
-        <p class="eyebrow">COMPONENT INDICATORS</p>
-        <h2 id="components-title">Why Each Signal Exists, and How It Works?</h2>
-        <p>Panic uses up to five years of history, with at least one year required. Consensus Earnings Health uses direct EPS revision magnitude and revision breadth, with tiny changes treated as neutral. Valuation stays separate as entry context.</p>
-      </div>
-      <div class="component-groups">
-        <div>
-          <h3><span class="key panic-key"></span>Panic Indicators</h3>
-          <div id="panic-components"></div>
-        </div>
-        <div>
-          <h3><span class="key fundamentals-key"></span>Consensus Earnings Health Evidence</h3>
-          <div id="fundamentals-components"></div>
-        </div>
-        <div>
-          <h3><span class="key entry-key"></span>Entry Diagnostics</h3>
-          <div id="entry-components"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="why-section report-section reveal" aria-labelledby="why-title">
-      <div class="section-number" aria-hidden="true">03</div>
-      <div class="why-layout">
-        <div class="section-heading">
-          <p class="eyebrow">WHY I BUILT THIS</p>
-          <h2 id="why-title">Fear Alone Is Not a Decision.</h2>
-        </div>
-        <article class="why-copy">
-          <p>I built the Panic / Consensus Earnings Health Engine because volatility is useful, but it is not an investment decision. VIX tells us when protection is expensive. It does not tell us whether forward earnings estimates are holding up.</p>
-          <p>Very short-dated contracts, systematic hedging, and concentrated index leadership can move volatility without proving that the underlying businesses are broken. VIX answers only one part of the question: how nervous is the market?</p>
-          <p>This is not a momentum indicator or a stand-alone volatility indicator. The period after the Iran conflict shows why simple volatility comparisons can mislead: a reading may look as severe as, or worse than, parts of the 2020 COVID shock even when market prices and earnings expectations tell a different story. The engine never treats volatility alone as a buy or sell signal. It asks whether market fear is confirmed by broad deterioration in forward earnings expectations.</p>
-          <p>The engine keeps the evidence clean. Panic measures market stress. Consensus Earnings Health measures only next-year EPS revision direction and the breadth of companies receiving upgrades. Valuation, equity risk premium, and price-versus-EPS divergence remain entry diagnostics because healthy earnings expectations do not automatically mean an attractive entry.</p>
-          <p>Dislocation Gap is the distance between the two meters: Consensus Earnings Health plus Panic minus 100. A positive gap means market stress is worse than the earnings evidence. It is a screening signal, not a substitute for valuation or company-level work.</p>
-          <p>The core values are separation, honest coverage, and decision usefulness. No weak proxy is allowed to masquerade as broken earnings. No incomplete history is presented as validated evidence.</p>
-        </article>
-      </div>
-    </section>
-    </div>
-
-  </main>
-
-  <footer>
-    <p>Market research, not investment advice. Consensus Earnings Health publishes only when analyst coverage passes. Three-month entry divergence requires 64 comparable daily endpoints.</p>
-    <p>Sources: Yahoo Finance, Cboe, FRED, and public constituent data.</p>
-  </footer>
-
-  <script src="app.js" defer></script>
-</body>
-</html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Compare market pressure, business resilience and priced expectations. Transparent research for investing through uncertainty."><meta name="theme-color" content="#0c1115">
+<title>Reality Sentiment Engine | Expectations Dashboard</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"><script src="model.js" defer></script><script src="app.js" defer></script>
+</head><body>
+<a class="skip" href="#main">Skip to dashboard</a>
+<header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">R·E</span><span>Reality Sentiment<span class="brand-sub">EXPECTATIONS RESEARCH</span></span></a><nav aria-label="Main navigation"><a class="active" href="#overview">Overview</a><a href="#research">Research lab</a><a href="#methodology">Methodology</a><a href="about.html">About</a></nav><span class="edition">DAILY CLOSE <b>USD</b></span></header>
+<main id="main">
+<section id="overview"><div class="page-heading"><div><p class="eyebrow">REALITY SENTIMENT ENGINE</p><h1>Market &amp; company research</h1><p>Market pressure, business resilience, and expectations embedded in price.</p></div><div class="publication"><i class="dot green"></i><span id="publication">Scheduled closing observations</span></div></div>
+<div class="disclosure"><span class="tiny-label">READ THIS FIRST</span><p>Colors describe research setups. Values come from <strong>editable reference scenarios</strong>, not price targets. Price pressure is a proxy for mood. No classification is a buy or sell instruction.</p></div><div id="load-status" role="status"></div>
+<div class="overview-grid"><section class="panel map-panel" aria-labelledby="map-title"><div class="panel-heading"><div><p class="eyebrow">01 / OPPORTUNITY MAP</p><h2 id="map-title">Price meets expectations</h2></div><span class="tag">MAGNIFICENT SEVEN</span></div><div class="map-legend"><span><i class="dot green"></i>Resilient</span><span><i class="dot amber"></i>Mixed</span><span><i class="dot red"></i>Weakening</span><span class="legend-note">Color = financial evidence</span></div>
+<div class="map-layout"><div class="vertical-axis">Reference upside / downside</div><div class="map-inner"><div class="map-y-ticks" aria-hidden="true"><span>+60%</span><span>0%</span><span>−60%</span></div><div class="opportunity-map" role="group" aria-label="Stocks by price pressure and reference valuation. Select a stock to open its research."><div class="map-zone zone-tl"><strong>FEAR + DISCOUNT</strong><span>Test the business thesis</span></div><div class="map-zone zone-tr"><strong>MOMENTUM + DISCOUNT</strong><span>Challenge the model</span></div><div class="map-zone zone-bl"><strong>FEAR + PREMIUM</strong><span>A decline may be justified</span></div><div class="map-zone zone-br"><strong>OPTIMISM + PREMIUM</strong><span>How much success is priced in?</span></div><div class="map-crosshair horizontal"></div><div class="map-crosshair vertical"></div><div id="map-points"></div></div><div class="map-x-labels"><span>0 / SELLING PRESSURE</span><span>50 / NEUTRAL</span><span>BUYING PRESSURE / 100</span></div></div></div><div class="map-foot"><span>Fear and exuberance are interpretations of price behavior.</span><span id="map-coverage">Fresh evidence required to place a stock.</span></div></section>
+<aside class="context-panel panel" aria-labelledby="context-title"><div class="panel-heading"><div><p class="eyebrow">THE BACKDROP</p><h2 id="context-title">Market context</h2></div></div><div id="market-context"><p class="context-empty">Checking published index observations.</p></div><p class="context-note">Index panic and revisions are separate from the stock model. Overlapping universes are not independent confirmations.</p><a class="text-link" href="#methodology">Understand the framework ↗</a></aside></div>
+<section class="panel watchlist-panel" aria-labelledby="watchlist-title"><div class="panel-heading"><div><p class="eyebrow">02 / COVERAGE UNIVERSE</p><h2 id="watchlist-title">Coverage universe</h2></div><label class="filter-label">Show<select id="state-filter"><option value="all">All setups</option><option value="discount">Reference discounts</option><option value="premium">Demanding valuations</option><option value="unclear">Limited / stale evidence</option></select></label></div><div class="table-scroll"><table class="watchlist"><thead><tr><th scope="col">Company</th><th scope="col">Close / 1D</th><th scope="col">Market mood</th><th scope="col">Business evidence</th><th scope="col">Reference upside</th><th scope="col">Research setup</th><th scope="col"><span class="sr-only">Open research</span></th></tr></thead><tbody id="watchlist-body"></tbody></table></div><p class="table-note">Reference: latest-quarter revenue growth capped at 25%, TTM operating margin, 10% discount rate. Inspect all assumptions in the research lab.</p></section></section>
+<section id="research" class="research-section" aria-labelledby="research-title"><div class="section-heading"><div><p class="eyebrow">03 / RESEARCH LAB</p><h2 id="research-title">Company research</h2><p>Review operating evidence and test the assumptions behind valuation.</p></div><div id="stock-tabs" class="stock-tabs" role="group" aria-label="Choose a company"></div></div><div id="stock-detail" aria-live="polite"></div><div id="lab" class="lab-grid" hidden>
+<section class="panel assumptions-panel" aria-labelledby="assumptions-title"><div class="panel-heading"><div><p class="eyebrow">YOUR ASSUMPTIONS</p><h3 id="assumptions-title">Scenario assumptions</h3></div><button class="quiet-button" id="reset-model">Reset</button></div><p class="small muted">Local exploration only. Controls do not alter published watchlist assumptions or your other devices.</p><div id="assumption-controls"></div><p class="input-note">Growth applies for five years. Operating margin transitions from today's level to your year-five assumption.</p></section>
+<section class="panel valuation-panel" aria-labelledby="valuation-title"><div class="panel-heading"><div><p class="eyebrow">PRICED EXPECTATIONS</p><h3 id="valuation-title">Valuation sensitivity</h3></div><span class="tag" id="model-status">REFERENCE SCENARIO</span></div><div id="valuation-output" aria-live="polite"></div><details class="math-details"><summary>Inspect the cash-flow model</summary><div id="cashflow-table" class="table-scroll"></div><p>FCFF = revenue × operating margin × (1 − tax) − net reinvestment. Net reinvestment = positive revenue change ÷ sales-to-capital. Terminal cash flow uses terminal growth and year-five margin. Equity value = discounted FCFF + cash − debt, floored at zero.</p><p>Five-year model; no separate option value, acquisitions or future share issuance. Stock compensation remains an expense in operating profit. Cash and reported debt are simplified proxies. Terminal assumptions can dominate the result.</p></details></section></div></section>
+<section id="methodology" class="methodology panel" aria-labelledby="method-title"><div class="method-intro"><p class="eyebrow">04 / THE RESEARCH CONTRACT</p><h2 id="method-title">Methodology<br>&amp; limitations.</h2><p>Documented inputs, explicit assumptions, and clear boundaries on what the model can establish.</p><a class="text-link" href="about.html">Why this project exists ↗</a></div><div class="method-details">
+<details open><summary><span>01</span> What does market mood measure?</summary><p>A signed price-pressure proxy, not direct observation of emotion: 30% three-month return, 25% return relative to SPY, 25% distance from the 200-day average, and 20% signed volume balance over 20 sessions. Returns and trend use ±25% scales; relative returns use ±15 points, all clipped to ±1. Weighted components map to 0–100. Below 30 means selling pressure; above 70 means buying pressure. No claim that low volatility equals greed.</p></details>
+<details><summary><span>02</span> What counts as resilient?</summary><p>Nonnegative latest-quarter year-over-year revenue growth, margin compression no worse than one percentage point, positive trailing free cash flow, and net debt no greater than three times operating cash flow. Sales contraction beyond 5%, margin compression beyond 3 points, nonpositive operating profit or net debt beyond four times positive operating cash flow flags weakness. Otherwise, mixed. These are unvalidated screening rules, not a moat rating. EPS revisions remain separate expectations evidence.</p></details>
+<details><summary><span>03</span> How are reference values built?</summary><p>Defaults are mechanical starting assumptions: latest-quarter revenue growth clipped to 0–25%, TTM operating margin clipped to 1–65% (both rounded to half points), 10% discount rate, 3% terminal growth, 21% tax and a 2× sales-to-capital ratio. They are not independent forecasts or analyst-approved fair values. Bear: growth −5 points, margin −3 points, discount rate +2 points. Bull: growth +5 points, margin +3 points, discount rate −1 point, subject to control limits. Scenarios are not confidence intervals.</p></details>
+<details><summary><span>04</span> What changes the research label?</summary><p>A discount requires price at least 20% below reference value. A premium requires price more than 15% above reference value. Fear discount candidates also require mood ≤30 and resilient financial evidence. Optimism priced in requires mood ≥70 and a premium. Other discounts, premiums, neutral and unclear states remain visible. Model value relative to price is not proof of mispricing.</p></details>
+<details><summary><span>05</span> What is measured, assumed or missing?</summary><p>Prices and financial statements are sourced through Yahoo Finance. Fiscal periods, retrieval times, raw quarter values and estimate target dates are retained. Retrieved-today does not mean every estimate was updated today. No invented news or causal claim explains a selloff. Company questions are research prompts. Stale or incomplete evidence blocks classification. Weekday freshness is conservative around holidays.</p></details>
+<details><summary><span>06</span> Has this beaten a fear-only index?</summary><p>No. This methodology starts prospectively with its first stock observation. Daily underlying observations are archived for later evaluation. Earlier index episodes and proxy backtests test different methodologies and cannot validate this stock framework. Evaluate all qualifying setups against fear alone and simple accumulation policies, including failures and missed opportunities.</p></details></div></section>
+</main><footer><a class="brand" href="./">Reality Sentiment Engine</a><p>Research judgments. Explicit assumptions. No automated investment instructions.</p><a href="about.html">About the research ↗</a></footer><noscript><p class="noscript">Enable JavaScript for stock selection and valuation calculations. Methodology and About remain readable.</p></noscript></body></html>
