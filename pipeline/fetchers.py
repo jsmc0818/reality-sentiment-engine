@@ -11,7 +11,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from functools import lru_cache
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import pandas as pd
 import requests
@@ -29,6 +29,12 @@ yf.set_tz_cache_location(CACHE)
 HTTP_HEADERS = {
     "User-Agent": "sentiment-engine/1.0 (public market-data research)",
 }
+SHILLER_HOSTS = {"shillerdata.com", "www.shillerdata.com", "img1.wsimg.com"}
+
+
+def _trusted_shiller_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.scheme == "https" and parsed.hostname in SHILLER_HOSTS
 
 
 def completed_market_cutoff(now_utc=None) -> pd.Timestamp:
@@ -701,15 +707,18 @@ def shiller_earnings() -> pd.Series:
         match = re.search(r'href=["\']([^"\']*ie_data\.xls[^"\']*)', home.text,
                           flags=re.IGNORECASE)
         if match:
-            urls.append(urljoin(home.url, match.group(1)))
+            url = urljoin(home.url, match.group(1))
+            if _trusted_shiller_url(url):
+                urls.append(url)
     except Exception as e:  # noqa: BLE001
         log.warning("ShillerData workbook discovery failed: %s", e)
-    urls.append("http://www.econ.yale.edu/~shiller/data/ie_data.xls")
 
     for url in urls:
         try:
             r = requests.get(url, headers=HTTP_HEADERS, timeout=45)
             r.raise_for_status()
+            if not _trusted_shiller_url(r.url):
+                raise ValueError("untrusted Shiller workbook URL")
             raw = pd.read_excel(io.BytesIO(r.content), sheet_name="Data", skiprows=7)
             raw = raw.rename(columns=lambda c: str(c).strip())
             numeric_dates = pd.to_numeric(raw["Date"], errors="coerce")

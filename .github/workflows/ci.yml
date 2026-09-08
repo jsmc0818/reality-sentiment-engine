@@ -23,4 +23,7 @@ jobs:
       - name: Validate committed public data
         run: python -m pipeline.public_output data/scores.json data/timeline.json
       - name: Validate website bindings
-        run: node app.js
+        run: |
+          python -m pipeline.stocks --validate
+          node app.js
+          node tests/test_model.js

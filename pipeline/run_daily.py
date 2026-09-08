@@ -49,7 +49,7 @@ def canonical_market_asof(index_prices, mag7_prices, cutoff) -> pd.Timestamp:
     asof = max(common_dates)
     cutoff = pd.Timestamp(cutoff).normalize()
     lag = len(pd.bdate_range(asof, cutoff, inclusive="left")) if asof < cutoff else 0
-    if asof > cutoff or lag > config.MAX_PANIC_STALE_BUSINESS_DAYS:
+    if asof > cutoff or lag > config.MAX_PUBLICATION_STALE_BUSINESS_DAYS:
         raise RuntimeError(
             f"daily publication blocked: latest complete market session {asof.date()} "
             f"is outside the cutoff window ending {cutoff.date()}"
