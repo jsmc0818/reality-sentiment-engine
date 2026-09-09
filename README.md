@@ -98,8 +98,9 @@ pipeline or submit arbitrary tickers to upstream services. Scenario edits stay
 in browser memory. The About page contains intentionally published authorship;
 market-data files contain no profile, credentials or general provider responses.
 
-GitHub Actions refresh stock evidence at 21:45 UTC on weekdays. The existing
-index job runs independently at 21:30 UTC. Both serialize market-data commits.
+GitHub Actions refresh stock evidence at 22:45 UTC on weekdays. The existing
+index job runs independently at 22:30 UTC. Both run after the US close in EST
+and EDT, retry once after a transient failure, and serialize market-data commits.
 Successful jobs trigger GitHub Pages publication. Upstream failures retain prior
 files where the entire stock fetch fails; partial evidence is explicitly limited.
 Freshness gates prevent prior data from being displayed as current conviction.
