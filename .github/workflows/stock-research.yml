@@ -2,7 +2,7 @@ name: stock-research
 
 on:
   schedule:
-    - cron: "45 21 * * 1-5"
+    - cron: "45 22 * * 1-5"   # 22:45 UTC = safely after US close in EST and EDT
   workflow_dispatch:
 
 permissions:
@@ -30,7 +30,17 @@ jobs:
           python -m unittest discover -s tests -q
           node tests/test_model.js
       - name: Collect dated stock evidence
-        run: python -m pipeline.stocks
+        run: |
+          for attempt in 1 2; do
+            if python -m pipeline.stocks; then
+              break
+            fi
+            if [ "$attempt" = 2 ]; then
+              exit 1
+            fi
+            echo "::warning::stock refresh failed; retrying once in 30 seconds"
+            sleep 30
+          done
       - name: Validate publication
         run: |
           python -m pipeline.stocks --validate

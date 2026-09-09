@@ -42,12 +42,13 @@ function renderContext(payload) {
 }
 
 function renderOverview() {
-  const points = [], rows = [];
+  const points = [], rows = [], signals = [];
   let ready = 0;
   for (const s of data.stocks) {
     const state = M.classify(s), e = M.evidence(s), r = M.resilience(s), m = s.market;
     const v = e.ready ? M.value(s, M.defaults(s)) : null;
     const color = r.code === "resilient" ? "green" : r.code === "weakening" ? "red" : "amber";
+    signals.push(`<button type="button" class="signal-row ${s.symbol === selected ? "selected" : ""}" data-symbol="${s.symbol}" aria-label="${s.symbol}: ${esc(state.label)}. Open research."><i class="dot ${e.ready ? color : "amber"}" aria-hidden="true"></i><span><strong>${s.symbol}</strong><small>${esc(state.label)}</small></span><span class="signal-arrow" aria-hidden="true">↗</span></button>`);
     if (e.ready && v) {
       ready++;
       const x = m.mood, y = Math.max(0, Math.min(100, 50 - v.upside / 120 * 100));
@@ -64,13 +65,14 @@ function renderOverview() {
   document.getElementById("map-coverage").textContent = `${ready}/7 positioned · Points beyond the scale are pinned to its edge.`;
   document.getElementById("watchlist-body").innerHTML = rows.join("") || '<tr><td colspan="7" class="empty-state">No stocks meet this filter.</td></tr>';
   document.getElementById("stock-tabs").innerHTML = data.stocks.map(s => `<button type="button" data-symbol="${s.symbol}" aria-pressed="${s.symbol === selected}">${s.symbol}</button>`).join("");
+  document.getElementById("signal-status").innerHTML = signals.join("");
 }
 
 function sparkline(history) {
   if (!history?.length) return "";
   const values = history.map(p => p.close), low = Math.min(...values), high = Math.max(...values);
   const points = values.map((v, i) => `${i / Math.max(1,values.length-1) * 300},${46 - (v-low) / (high-low || 1) * 40}`).join(" ");
-  return `<svg class="sparkline" viewBox="0 0 300 52" preserveAspectRatio="none" role="img" aria-label="Closing prices from ${esc(history[0].date)} to ${esc(history.at(-1).date)}"><polyline points="${points}" fill="none" stroke="${values.at(-1) >= values[0] ? "#b6dd84" : "#deb77b"}" stroke-width="1.7" vector-effect="non-scaling-stroke"/></svg>`;
+  return `<svg class="sparkline" viewBox="0 0 300 52" preserveAspectRatio="none" role="img" aria-label="Closing prices from ${esc(history[0].date)} to ${esc(history.at(-1).date)}"><polyline points="${points}" fill="none" stroke="${values.at(-1) >= values[0] ? "#50d8e9" : "#ffb689"}" stroke-width="1.7" vector-effect="non-scaling-stroke"/></svg>`;
 }
 
 function renderDetail() {
@@ -120,7 +122,17 @@ function selectStock(symbol, scroll = false) {
   selected = symbol;
   history.replaceState(null,"",`#stock=${symbol}`);
   renderOverview(); renderDetail();
+  if (scroll) setNavigation("#research");
   if (scroll) document.getElementById("research").scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+}
+
+function setNavigation(hash) {
+  document.querySelectorAll('.site-header nav a').forEach(link => {
+    const active = link.getAttribute("href") === hash;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "location");
+    else link.removeAttribute("aria-current");
+  });
 }
 
 async function init() {
@@ -128,6 +140,17 @@ async function init() {
   document.addEventListener("click",e => {
     const button=e.target.closest("[data-symbol]");
     if (button) selectStock(button.dataset.symbol,!button.closest("#stock-tabs"));
+    const link=e.target.closest('a[href^="#"]');
+    if (link) {
+      let hash=link.getAttribute("href");
+      if (hash === "#lab" && document.getElementById("lab").hidden) {
+        e.preventDefault();
+        hash="#research";
+        document.getElementById("research").scrollIntoView();
+        history.replaceState(null,"",hash);
+      }
+      setNavigation(hash);
+    }
   });
   document.getElementById("assumption-controls").addEventListener("input",e => {
     const key=e.target.dataset.assumption;
@@ -150,11 +173,13 @@ async function init() {
     const stale=data.stocks.filter(s=>!M.evidence(s).ready).length;
     if(stale) document.getElementById("load-status").innerHTML=`<p class="error-note">${stale} of 7 companies have stale or incomplete evidence. Their classifications are withheld; dated financial observations remain inspectable.</p>`;
     renderOverview();renderDetail();
+    if (location.hash) setNavigation(location.hash.startsWith("#stock=") ? "#research" : location.hash);
   } catch {
     document.getElementById("load-status").innerHTML='<p class="error-note">Stock evidence is unavailable or failed validation. No substitute scores are shown. Please return after the next successful scheduled publication.</p>';
     document.getElementById("map-points").innerHTML='<p class="map-empty">Stock classifications unavailable.</p>';
     document.getElementById("watchlist-body").innerHTML='<tr><td colspan="7" class="empty-state">No validated stock publication.</td></tr>';
     document.getElementById("stock-detail").innerHTML='<p class="muted">Research calculations require a validated stock publication. Read the methodology below.</p>';
+    document.getElementById("signal-status").innerHTML='<p class="context-empty">Company signals unavailable. No validated publication.</p>';
   }
 }
 

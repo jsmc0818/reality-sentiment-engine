@@ -37,15 +37,25 @@ for(const s of observed.stocks.filter(s=>s.status==="available" && M.defaults(s)
 // Run browser entrypoint with a tiny DOM harness: verifies IDs, fetch, and
 // all seven detail paths without installing a framework or making live calls.
 const html=fs.readFileSync(path.join(__dirname,"../index.html"),"utf8");
-const elements=new Map([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,{innerHTML:"",textContent:"",hidden:false,addEventListener(){},scrollIntoView(){}}]));
-const sandbox={ResearchModel:M,console,Date,Intl,Number,Promise,history:{replaceState(){}},location:{hash:""},fetch:async url=>({ok:true,json:async()=>JSON.parse(fs.readFileSync(path.join(__dirname,"..",url)))}),document:{getElementById:id=>{if(!elements.has(id)&&!id.startsWith("output-"))throw new Error(`Missing HTML id: ${id}`);return elements.get(id);},addEventListener(){}},window:{ResearchModel:M,matchMedia:()=>({matches:true})}};
+const listeners = {};
+const elements=new Map([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,{innerHTML:"",textContent:"",hidden:false,addEventListener(type, handler){this[type]=handler;},scrollIntoView(){}}]));
+const sandbox={ResearchModel:M,console,Date,Intl,Number,Promise,history:{replaceState(){}},location:{hash:""},fetch:async url=>({ok:true,json:async()=>JSON.parse(fs.readFileSync(path.join(__dirname,"..",url)))}),document:{querySelectorAll:()=>[],getElementById:id=>{if(!elements.has(id)&&!id.startsWith("output-"))throw new Error(`Missing HTML id: ${id}`);return elements.get(id);},addEventListener(type,handler){listeners[type]=handler;}},window:{ResearchModel:M,matchMedia:()=>({matches:true})}};
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(__dirname,"../app.js"),"utf8"),sandbox);
 setImmediate(()=>{
   assert.ok(elements.get("watchlist-body").innerHTML.includes("MSFT"));
+  assert.equal((elements.get("signal-status").innerHTML.match(/class="signal-row /g)||[]).length,7);
   for(const symbol of observed.stocks.map(s=>s.symbol)) {
     vm.runInContext(`selectStock('${symbol}')`,sandbox);
     assert.ok(elements.get("stock-detail").innerHTML.includes(symbol));
   }
+  elements.get("state-filter").change({target:{value:"unclear"}});
+  assert.ok(!elements.get("watchlist-body").innerHTML.includes('data-symbol="MSFT"'));
+  assert.equal((elements.get("signal-status").innerHTML.match(/class="signal-row /g)||[]).length,7);
+  vm.runInContext("selectStock('AMZN')",sandbox);
+  assert.equal(elements.get("lab").hidden,true);
+  let redirected=false;
+  listeners.click({target:{closest:selector=>selector==='a[href^="#"]' ? {getAttribute:()=>"#lab"} : null},preventDefault(){redirected=true;}});
+  assert.ok(redirected,"Unavailable valuation must navigate to visible company evidence");
   console.log("Valuation economics, reverse solutions, stale gates and seven stock UI paths passed");
 });
