@@ -21,7 +21,7 @@ function validateStocks(payload) {
     if (![s.name,s.sector,s.question,s.countercase,s.invalidation].every(x => typeof x === "string") ||
         !Array.isArray(s.drivers) || !s.drivers.every(x => typeof x === "string") ||
         !/^https:\/\//.test(s.ir) || s.collected_at !== payload.generated_at) throw new Error("Invalid stock metadata");
-    if (s.market && (![s.market.price, s.market.mood].every(Number.isFinite) || s.market.price <= 0 || s.market.mood < 0 || s.market.mood > 100 || !Array.isArray(s.market.history))) throw new Error("Invalid market evidence");
+    if (s.market && (![s.market.price, s.market.mood].every(Number.isFinite) || s.market.price <= 0 || s.market.mood < 0 || s.market.mood > 100 || !Array.isArray(s.market.history) || !s.market.history.every(p => typeof p.date === "string" && Number.isFinite(p.close) && Number.isFinite(p.pressure) && p.close > 0 && p.pressure >= 0 && p.pressure <= 100))) throw new Error("Invalid market evidence");
     if (s.status === "available" && (!s.financials || !s.market || !Number.isFinite(s.market.market_cap))) throw new Error("Missing required stock evidence");
     if (s.financials && ![s.financials.revenue,s.financials.operating_margin_pct,s.financials.cash,s.financials.debt,s.financials.free_cash_flow,s.financials.operating_cash_flow].every(Number.isFinite)) throw new Error("Invalid financial evidence");
   }
@@ -64,7 +64,9 @@ function renderOverview() {
   document.getElementById("map-points").innerHTML = points.join("") || '<p class="map-empty">No fresh, complete stock evidence. Research framework remains available below.</p>';
   document.getElementById("map-coverage").textContent = `${ready}/7 positioned · Points beyond the scale are pinned to its edge.`;
   document.getElementById("watchlist-body").innerHTML = rows.join("") || '<tr><td colspan="7" class="empty-state">No stocks meet this filter.</td></tr>';
-  document.getElementById("stock-tabs").innerHTML = data.stocks.map(s => `<button type="button" data-symbol="${s.symbol}" aria-pressed="${s.symbol === selected}">${s.symbol}</button>`).join("");
+  const tabs = data.stocks.map(s => `<button type="button" data-symbol="${s.symbol}" aria-pressed="${s.symbol === selected}">${s.symbol}</button>`).join("");
+  document.getElementById("history-tabs").innerHTML = tabs;
+  document.getElementById("stock-tabs").innerHTML = tabs;
   document.getElementById("signal-status").innerHTML = signals.join("");
 }
 
@@ -73,6 +75,25 @@ function sparkline(history) {
   const values = history.map(p => p.close), low = Math.min(...values), high = Math.max(...values);
   const points = values.map((v, i) => `${i / Math.max(1,values.length-1) * 300},${46 - (v-low) / (high-low || 1) * 40}`).join(" ");
   return `<svg class="sparkline" viewBox="0 0 300 52" preserveAspectRatio="none" role="img" aria-label="Closing prices from ${esc(history[0].date)} to ${esc(history.at(-1).date)}"><polyline points="${points}" fill="none" stroke="${values.at(-1) >= values[0] ? "#50d8e9" : "#ffb689"}" stroke-width="1.7" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function renderHistory() {
+  const s = data.stocks.find(x => x.symbol === selected), m = s.market, f = s.financials;
+  const target = document.getElementById("history-content");
+  if (!m?.history?.length) {
+    target.innerHTML = '<p class="error-note">Historical evidence is unavailable for this company.</p>';
+    return;
+  }
+  const h = m.history, prices = h.map(p => p.close), pressure = h.map(p => p.pressure);
+  const low = Math.min(...prices), high = Math.max(...prices), x = i => 58 + i / Math.max(1,h.length-1) * 782;
+  const line = (values, min, max) => values.map((v,i) => `${x(i).toFixed(1)},${(220-(v-min)/(max-min || 1)*180).toFixed(1)}`).join(" ");
+  const quarters = f ? [...f.quarters].reverse() : [], maxRevenue = Math.max(...quarters.map(q => q.revenue));
+  const state = M.classify(s), resilience = M.resilience(s), prior = s.previous_observation;
+  const ledger = `<tr><td>${esc(m.price_date)}</td><td>${badge(state.label,state.tone)}</td><td>${m.mood.toFixed(0)} / 100</td><td>${esc(resilience.label)}</td><td>Tracking</td></tr>${prior ? `<tr><td>${esc(prior.date)}</td><td>${badge("Saved baseline")}</td><td>${prior.mood.toFixed(0)} / 100</td><td>${billions(prior.revenue)} TTM · ${prior.operating_margin_pct.toFixed(1)}% margin</td><td>Tracking</td></tr>` : ""}`;
+  target.innerHTML = `<div class="history-stats"><div><span>PRICE PRESSURE</span><strong>${m.mood.toFixed(0)} <small>/ 100</small></strong><p>${moodLabel(m.mood)}</p></div><div><span>6-MONTH PRICE MOVE</span><strong class="${sign(prices.at(-1)-prices[0])}">${pct((prices.at(-1)/prices[0]-1)*100)}</strong><p>${money(prices[0])} to ${money(prices.at(-1))}</p></div><div><span>BUSINESS EVIDENCE</span><strong>${esc(resilience.label)}</strong><p>${f ? `TTM through ${esc(f.period_end)}` : "Financial evidence limited"}</p></div></div>
+    <div class="history-grid"><section class="panel history-chart"><div class="panel-heading"><div><p class="eyebrow">PRICE + PRESSURE</p><h3>Six-month market path</h3></div><div class="chart-key"><span><i class="price-key"></i>Close</span><span><i class="pressure-key"></i>Pressure</span></div></div><svg viewBox="0 0 900 260" role="img" aria-label="${esc(s.symbol)} closing price and price pressure from ${esc(h[0].date)} to ${esc(h.at(-1).date)}"><rect x="58" y="40" width="782" height="54" class="greed-zone"/><rect x="58" y="166" width="782" height="54" class="fear-zone"/><g class="chart-grid"><line x1="58" y1="94" x2="840" y2="94"/><line x1="58" y1="130" x2="840" y2="130"/><line x1="58" y1="166" x2="840" y2="166"/></g><g class="chart-labels"><text x="18" y="98">70</text><text x="18" y="134">50</text><text x="18" y="170">30</text><text x="58" y="248">${esc(h[0].date)}</text><text x="449" y="248" text-anchor="middle">${esc(h[Math.floor(h.length/2)].date)}</text><text x="840" y="248" text-anchor="end">${esc(h.at(-1).date)}</text></g><polyline class="price-line" points="${line(prices,low,high)}"/><polyline class="pressure-line" points="${line(pressure,0,100)}"/></svg><p class="chart-note">Lines use separate scales. Pressure below 30 marks heavy selling; above 70 marks strong buying. It describes price behavior, not investor emotion.</p></section>
+    <section class="panel fundamental-chart"><div class="panel-heading"><div><p class="eyebrow">FUNDAMENTAL TRAJECTORY</p><h3>Reported quarters</h3></div><span class="tag">REVENUE + MARGIN</span></div>${f ? `<div class="quarter-bars">${quarters.map(q => {const margin=q.operating_income/q.revenue*100;return `<div class="quarter"><div class="bar-value">${billions(q.revenue)}</div><div class="bar-shell"><i style="height:${q.revenue/maxRevenue*100}%"></i></div><strong>${margin.toFixed(1)}%</strong><span>Op. margin</span><time>${esc(q.end.slice(0,7))}</time></div>`}).join("")}</div><p class="chart-note">Quarterly revenue and operating margin are reported observations. Bar heights compare revenue within this four-quarter window.</p>` : '<p class="context-empty">Four comparable financial quarters are unavailable. Market history remains visible.</p>'}</section></div>
+    <section class="panel episode-ledger"><div class="panel-heading"><div><p class="eyebrow">PROSPECTIVE RECORD</p><h3>Observation ledger</h3></div><span class="tag">NO BACKFILLED VERDICTS</span></div><div class="table-scroll"><table><thead><tr><th>Date</th><th>Research setup</th><th>Pressure</th><th>Business evidence</th><th>Outcome</th></tr></thead><tbody>${ledger}</tbody></table></div><p class="table-note">The ledger starts with actual saved engine observations. Forward returns and thesis outcomes will appear only after enough time has elapsed.</p></section>`;
 }
 
 function renderDetail() {
@@ -121,7 +142,7 @@ function selectStock(symbol, scroll = false) {
   if (!SYMBOLS.includes(symbol) || !data) return;
   selected = symbol;
   history.replaceState(null,"",`#stock=${symbol}`);
-  renderOverview(); renderDetail();
+  renderOverview(); renderHistory(); renderDetail();
   if (scroll) setNavigation("#research");
   if (scroll) document.getElementById("research").scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
 }
@@ -139,7 +160,11 @@ async function init() {
   document.getElementById("state-filter").addEventListener("change",e => { filter=e.target.value; if (data) renderOverview(); });
   document.addEventListener("click",e => {
     const button=e.target.closest("[data-symbol]");
-    if (button) selectStock(button.dataset.symbol,!button.closest("#stock-tabs"));
+    if (button) {
+      const inHistory=!!button.closest("#history-tabs");
+      selectStock(button.dataset.symbol,!button.closest(".stock-tabs"));
+      if (inHistory) history.replaceState(null,"","#history");
+    }
     const link=e.target.closest('a[href^="#"]');
     if (link) {
       let hash=link.getAttribute("href");
@@ -172,8 +197,12 @@ async function init() {
     document.getElementById("publication").textContent=`Stock evidence collected ${data.generated_at.slice(0,10)} · after US close`;
     const stale=data.stocks.filter(s=>!M.evidence(s).ready).length;
     if(stale) document.getElementById("load-status").innerHTML=`<p class="error-note">${stale} of 7 companies have stale or incomplete evidence. Their classifications are withheld; dated financial observations remain inspectable.</p>`;
-    renderOverview();renderDetail();
-    if (location.hash) setNavigation(location.hash.startsWith("#stock=") ? "#research" : location.hash);
+    renderOverview();renderHistory();renderDetail();
+    if (location.hash) {
+      const hash=location.hash.startsWith("#stock=") ? "#research" : location.hash;
+      setNavigation(hash);
+      document.getElementById(hash.slice(1))?.scrollIntoView();
+    }
   } catch {
     document.getElementById("load-status").innerHTML='<p class="error-note">Stock evidence is unavailable or failed validation. No substitute scores are shown. Please return after the next successful scheduled publication.</p>';
     document.getElementById("map-points").innerHTML='<p class="map-empty">Stock classifications unavailable.</p>';
