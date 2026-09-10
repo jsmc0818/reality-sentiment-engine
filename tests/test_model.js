@@ -48,6 +48,7 @@ setImmediate(()=>{
   for(const symbol of observed.stocks.map(s=>s.symbol)) {
     vm.runInContext(`selectStock('${symbol}')`,sandbox);
     assert.ok(elements.get("stock-detail").innerHTML.includes(symbol));
+    assert.ok(elements.get("history-content").innerHTML.includes("Six-month market path"));
   }
   elements.get("state-filter").change({target:{value:"unclear"}});
   assert.ok(!elements.get("watchlist-body").innerHTML.includes('data-symbol="MSFT"'));

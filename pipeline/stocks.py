@@ -126,33 +126,34 @@ def market_evidence(history, benchmark):
     """Signed price-pressure proxy; no claim to observe emotion or causal fear."""
     close = history["Close"].dropna()
     adjusted = history.get("Adj Close", history["Close"]).reindex(close.index)
-    aligned = pd.concat([adjusted.rename("stock"), benchmark.rename("benchmark")], axis=1).dropna()
-    if len(close) < 252 or len(aligned) < 64 or aligned.index[-1] != close.index[-1]:
-        raise ValueError("insufficient comparable market history")
-    ret63 = (adjusted.iloc[-1] / adjusted.iloc[-64] - 1) * 100
-    excess = ((aligned.stock.iloc[-1] / aligned.stock.iloc[-64])
-              - (aligned.benchmark.iloc[-1] / aligned.benchmark.iloc[-64])) * 100
-    trend = (adjusted.iloc[-1] / adjusted.iloc[-200:].mean() - 1) * 100
     volume = history.Volume.reindex(close.index)
-    signed_volume = np.sign(adjusted.diff()).mul(volume).iloc[-20:].sum() / volume.iloc[-20:].sum()
-    if not math.isfinite(signed_volume):
+    frame = pd.concat([adjusted.rename("stock"), benchmark.rename("benchmark"), volume.rename("volume")], axis=1).dropna()
+    if len(close) < 252 or len(frame) < 200 or frame.index[-1] != close.index[-1]:
+        raise ValueError("insufficient comparable market history")
+    ret63 = (frame.stock / frame.stock.shift(63) - 1) * 100
+    excess = ((frame.stock / frame.stock.shift(63))
+              - (frame.benchmark / frame.benchmark.shift(63))) * 100
+    trend = (frame.stock / frame.stock.rolling(200).mean() - 1) * 100
+    signed_volume = np.sign(frame.stock.diff()).mul(frame.volume).rolling(20).sum() / frame.volume.rolling(20).sum()
+    if not math.isfinite(signed_volume.iloc[-1]):
         raise ValueError("volume history unavailable")
     # Fixed transparent scales. These heuristics are unvalidated, not percentiles.
-    parts = {"return_3m": float(np.clip(ret63 / 25, -1, 1)),
-             "relative_return": float(np.clip(excess / 15, -1, 1)),
-             "trend": float(np.clip(trend / 25, -1, 1)),
-             "volume_balance": float(signed_volume)}
-    mood = 50 + 50 * (.30 * parts["return_3m"] + .25 * parts["relative_return"]
-                      + .25 * parts["trend"] + .20 * parts["volume_balance"])
+    pressure = 50 + 50 * (.30 * (ret63 / 25).clip(-1, 1)
+                          + .25 * (excess / 15).clip(-1, 1)
+                          + .25 * (trend / 25).clip(-1, 1)
+                          + .20 * signed_volume)
+    pressure = pressure.dropna()
+    mood = pressure.iloc[-1]
     return {"price": float(close.iloc[-1]), "price_date": str(close.index[-1].date()),
             "change_1d_pct": (close.iloc[-1] / close.iloc[-2] - 1) * 100,
             "return_1w_pct": (adjusted.iloc[-1] / adjusted.iloc[-6] - 1) * 100,
-            "return_3m_pct": ret63, "relative_return_3m_pts": excess,
-            "distance_200d_pct": trend,
+            "return_3m_pct": ret63.iloc[-1], "relative_return_3m_pts": excess.iloc[-1],
+            "distance_200d_pct": trend.iloc[-1],
             "drawdown_1y_pct": (adjusted.iloc[-1] / adjusted.iloc[-252:].max() - 1) * 100,
-            "volume_balance": float(signed_volume), "mood": round(mood, 2),
-            "history": [{"date": str(d.date()), "close": float(v)}
-                        for d, v in close.iloc[-126:].items()]}
+            "volume_balance": float(signed_volume.iloc[-1]), "mood": round(mood, 2),
+            "history": [{"date": str(d.date()), "close": float(close.loc[d]),
+                         "pressure": round(float(v), 2)}
+                        for d, v in pressure.iloc[-126:].items()]}
 
 
 def fetch_stock(symbol, benchmark, cutoff, collected):
@@ -229,13 +230,16 @@ def validate(payload):
                 raise ValueError("invalid price history length")
             prior = ""
             for point in m["history"]:
-                _keys(point, {"date", "close"}, "price history")
+                _keys(point, {"date", "close", "pressure"}, "price history")
                 datetime.strptime(point["date"], "%Y-%m-%d")
                 if not prior < point["date"] <= m["price_date"]:
                     raise ValueError("unordered price history")
                 prior = point["date"]
                 _number(point["close"], "historical close", .001, 1e7)
-            if m["history"][-1] != {"date": m["price_date"], "close": m["price"]}:
+                _number(point["pressure"], "historical pressure", 0, 100)
+            if (m["history"][-1]["date"] != m["price_date"]
+                    or m["history"][-1]["close"] != m["price"]
+                    or m["history"][-1]["pressure"] != m["mood"]):
                 raise ValueError("price endpoints disagree")
         if f is not None:
             _keys(f, {"period_end", "balance_date", "revenue", "operating_income", "operating_margin_pct", "revenue_growth_yoy_pct", "margin_change_yoy_pts", "operating_cash_flow", "capex", "free_cash_flow", "sbc", "cash", "debt", "quarters"}, "financials")

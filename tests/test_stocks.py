@@ -47,8 +47,12 @@ class StockEvidenceTests(unittest.TestCase):
         rising = pd.DataFrame({"Close": np.linspace(100, 200, 300), "Volume": 1000}, index=dates)
         falling = rising.copy()
         falling["Close"] = np.linspace(200, 100, 300)
-        self.assertGreater(stocks.market_evidence(rising, benchmark)["mood"], 70)
-        self.assertLess(stocks.market_evidence(falling, benchmark)["mood"], 30)
+        up = stocks.market_evidence(rising, benchmark)
+        down = stocks.market_evidence(falling, benchmark)
+        self.assertGreater(up["mood"], 70)
+        self.assertLess(down["mood"], 30)
+        self.assertEqual(up["history"][-1]["pressure"], up["mood"])
+        self.assertTrue(all(0 <= point["pressure"] <= 100 for point in down["history"]))
 
     def test_invalid_update_preserves_last_good_publication(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(stocks, "ROOT", Path(directory)):
