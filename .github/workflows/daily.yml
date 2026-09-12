@@ -1,7 +1,7 @@
 name: daily-scores
 on:
   schedule:
-    - cron: "30 22 * * 1-5"   # 22:30 UTC = safely after US close in EST and EDT
+    - cron: "30 10 * * 2-6"   # 10:30 UTC Tue-Sat: collect the prior US session after overnight provider updates
   workflow_dispatch:
 
 concurrency:
@@ -13,11 +13,13 @@ permissions:
 
 jobs:
   score:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:

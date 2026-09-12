@@ -40,8 +40,11 @@ def _trusted_shiller_url(url: str) -> bool:
 def completed_market_cutoff(now_utc=None) -> pd.Timestamp:
     """Latest date safe for daily bars; the workflow runs after 21:00 UTC."""
     now = now_utc or datetime.now(timezone.utc)
+    now = now.astimezone(timezone.utc)
     cutoff = pd.Timestamp(now.date())
-    return cutoff if now.hour >= 21 else cutoff - pd.offsets.BDay(1)
+    if now.hour < 21:
+        cutoff -= pd.Timedelta(days=1)
+    return pd.offsets.BDay().rollback(cutoff)
 
 
 def _safe_error(error: Exception) -> str:
