@@ -85,7 +85,8 @@ def keep_validated_previous_reading(scores_path, timeline_path, market_asof, cut
     if previous["asof"] != expected:
         raise RuntimeError(
             "daily publication blocked: the latest complete market session "
-            "does not match the prior public reading"
+            f"{expected} does not match the prior public reading {previous['asof']} "
+            f"(cutoff {pd.Timestamp(cutoff).date()}); retry after provider data catches up"
         )
     print(
         f"no new complete market session through {pd.Timestamp(cutoff).date()}; "
@@ -170,6 +171,7 @@ def main():
         for scope in config.SCOPES
     }
     market_asof = canonical_market_asof(index_px, member_px["mag7"], market_cutoff)
+    print(f"market cutoff={market_cutoff.date()}, latest complete session={market_asof.date()}")
     if market_asof != market_cutoff:
         scores_path = Path(config.DATA_DIR) / "scores.json"
         timeline_path = Path(config.DATA_DIR) / "timeline.json"

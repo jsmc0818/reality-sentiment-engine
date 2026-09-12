@@ -18,6 +18,29 @@ from pipeline.run_daily import (
 
 
 class DailyCutoffTests(unittest.TestCase):
+    def test_overnight_schedule_targets_the_prior_us_session(self):
+        for day, expected in [(8, "2026-09-07"), (11, "2026-09-10"), (12, "2026-09-11")]:
+            self.assertEqual(completed_market_cutoff(datetime(
+                2026, 9, day, 10, 30, tzinfo=timezone.utc)), pd.Timestamp(expected))
+
+    def test_weekend_manual_runs_never_request_weekend_bars(self):
+        for day in (12, 13):
+            for hour in (0, 10, 23):
+                self.assertEqual(completed_market_cutoff(datetime(
+                    2026, 9, day, hour, tzinfo=timezone.utc)), pd.Timestamp("2026-09-11"))
+
+    def test_lagging_feed_reports_all_dates_without_relabeling_old_scores(self):
+        with tempfile.TemporaryDirectory() as directory:
+            scores = Path(directory) / "scores.json"
+            timeline = Path(directory) / "timeline.json"
+            scores.write_text(json.dumps({"asof": "2026-09-08"}))
+            timeline.write_text("{}")
+            before = scores.read_bytes()
+            with patch("pipeline.run_daily.P.validate_public_timeline_pair"):
+                with self.assertRaisesRegex(RuntimeError, "2026-09-09.*2026-09-08.*2026-09-10"):
+                    keep_validated_previous_reading(scores, timeline, "2026-09-09", "2026-09-10")
+            self.assertEqual(scores.read_bytes(), before)
+
     def test_before_publication_time_uses_previous_date(self):
         now = datetime(2026, 7, 16, 12, tzinfo=timezone.utc)
         self.assertEqual(completed_market_cutoff(now), pd.Timestamp("2026-07-15"))

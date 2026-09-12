@@ -39,21 +39,23 @@ for(const s of observed.stocks.filter(s=>s.status==="available" && M.defaults(s)
 const html=fs.readFileSync(path.join(__dirname,"../index.html"),"utf8");
 const listeners = {};
 const elements=new Map([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,{innerHTML:"",textContent:"",hidden:false,addEventListener(type, handler){this[type]=handler;},scrollIntoView(){}}]));
-const sandbox={ResearchModel:M,console,Date,Intl,Number,Promise,history:{replaceState(){}},location:{hash:""},fetch:async url=>({ok:true,json:async()=>JSON.parse(fs.readFileSync(path.join(__dirname,"..",url)))}),document:{querySelectorAll:()=>[],getElementById:id=>{if(!elements.has(id)&&!id.startsWith("output-"))throw new Error(`Missing HTML id: ${id}`);return elements.get(id);},addEventListener(type,handler){listeners[type]=handler;}},window:{ResearchModel:M,matchMedia:()=>({matches:true})}};
+const collectionTime=new Date(observed.generated_at);
+const datedModel={...M,evidence:s=>M.evidence(s,collectionTime),marketAge:d=>M.marketAge(d,collectionTime),classify:(s,a)=>M.classify(s,a,collectionTime)};
+const sandbox={ResearchModel:datedModel,console,Date,Intl,Number,Promise,history:{replaceState(){}},location:{hash:""},fetch:async url=>({ok:true,json:async()=>JSON.parse(fs.readFileSync(path.join(__dirname,"..",url)))}),document:{querySelectorAll:()=>[],getElementById:id=>{if(!elements.has(id)&&!id.startsWith("output-"))throw new Error(`Missing HTML id: ${id}`);return elements.get(id);},addEventListener(type,handler){listeners[type]=handler;}},window:{ResearchModel:datedModel,matchMedia:()=>({matches:true})}};
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(__dirname,"../app.js"),"utf8"),sandbox);
 setImmediate(()=>{
   assert.ok(elements.get("watchlist-body").innerHTML.includes("MSFT"));
   assert.equal((elements.get("signal-status").innerHTML.match(/class="signal-row /g)||[]).length,7);
-  for(const symbol of observed.stocks.map(s=>s.symbol)) {
+  for(const {symbol,market} of observed.stocks) {
     vm.runInContext(`selectStock('${symbol}')`,sandbox);
     assert.ok(elements.get("stock-detail").innerHTML.includes(symbol));
-    assert.ok(elements.get("history-content").innerHTML.includes("Six-month market path"));
+    assert.ok(elements.get("history-content").innerHTML.includes(market ? "Six-month market path" : "Historical evidence is unavailable"));
   }
   elements.get("state-filter").change({target:{value:"unclear"}});
-  assert.ok(!elements.get("watchlist-body").innerHTML.includes('data-symbol="MSFT"'));
+  for (const s of observed.stocks) assert.equal(elements.get("watchlist-body").innerHTML.includes(`data-symbol="${s.symbol}"`),datedModel.classify(s).code==="unclear");
   assert.equal((elements.get("signal-status").innerHTML.match(/class="signal-row /g)||[]).length,7);
-  vm.runInContext("selectStock('AMZN')",sandbox);
+  vm.runInContext("data.stocks.find(s=>s.symbol==='AMZN').status='limited'; selectStock('AMZN')",sandbox);
   assert.equal(elements.get("lab").hidden,true);
   let redirected=false;
   listeners.click({target:{closest:selector=>selector==='a[href^="#"]' ? {getAttribute:()=>"#lab"} : null},preventDefault(){redirected=true;}});
