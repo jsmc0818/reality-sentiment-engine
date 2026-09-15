@@ -98,10 +98,10 @@ pipeline or submit arbitrary tickers to upstream services. Scenario edits stay
 in browser memory. The About page contains intentionally published authorship;
 market-data files contain no profile, credentials or general provider responses.
 
-GitHub Actions refresh index scores at 10:30 UTC and stock evidence at 10:45 UTC,
-Tuesday through Saturday. Each run targets the previous US trading weekday,
-so Saturday morning collects Friday data. Overnight collection gives providers
-time to finish daily bars. Both jobs retry once after a transient failure and
+GitHub Actions attempt index scores at 22:30 UTC and stock evidence at 22:45 UTC,
+Monday through Friday, then retry at 10:30/10:45 UTC Tuesday through Saturday
+if providers lag. Each run targets the latest completed US trading weekday.
+Both jobs retry once after a transient failure and
 serialize market-data commits from the latest main checkout. Date and freshness
 gates still block mismatched evidence; older scores are never relabeled as current.
 Successful jobs trigger GitHub Pages publication. Upstream failures retain prior

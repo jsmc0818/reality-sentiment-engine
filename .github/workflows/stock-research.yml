@@ -2,7 +2,8 @@ name: stock-research
 
 on:
   schedule:
-    - cron: "45 10 * * 2-6"   # 10:45 UTC Tue-Sat: collect the prior US session after overnight provider updates
+    - cron: "45 22 * * 1-5"   # 22:45 UTC Mon-Fri: same-evening attempt after the US close
+    - cron: "45 10 * * 2-6"   # 10:45 UTC Tue-Sat: overnight catch-up if providers lag
   workflow_dispatch:
 
 permissions:
