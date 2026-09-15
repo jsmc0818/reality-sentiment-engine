@@ -18,6 +18,10 @@ from pipeline.run_daily import (
 
 
 class DailyCutoffTests(unittest.TestCase):
+    def test_evening_schedule_targets_the_same_us_session(self):
+        self.assertEqual(completed_market_cutoff(datetime(
+            2026, 9, 14, 22, 30, tzinfo=timezone.utc)), pd.Timestamp("2026-09-14"))
+
     def test_overnight_schedule_targets_the_prior_us_session(self):
         for day, expected in [(8, "2026-09-07"), (11, "2026-09-10"), (12, "2026-09-11")]:
             self.assertEqual(completed_market_cutoff(datetime(
