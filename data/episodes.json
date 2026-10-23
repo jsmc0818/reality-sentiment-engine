@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at_utc": "2026-10-20T15:13:57+00:00",
+  "generated_at_utc": "2026-10-23T15:16:07+00:00",
   "entry_rule": "first close after a Candidate Dislocation state begins",
   "horizons_sessions": [
     21,
@@ -55,16 +55,40 @@
       "methodology_start": "2026-09-02",
       "scopes": {
         "sp500": {
-          "episode_count": 0,
-          "episodes": []
+          "episode_count": 1,
+          "episodes": [
+            {
+              "signal_date": "2026-10-22",
+              "signal_panic": 77.1,
+              "signal_fundamentals": 73.2,
+              "state_exit_date": null,
+              "status": "pending_entry"
+            }
+          ]
         },
         "ndx100": {
-          "episode_count": 0,
-          "episodes": []
+          "episode_count": 1,
+          "episodes": [
+            {
+              "signal_date": "2026-10-22",
+              "signal_panic": 83.6,
+              "signal_fundamentals": 91.9,
+              "state_exit_date": null,
+              "status": "pending_entry"
+            }
+          ]
         },
         "mag7": {
-          "episode_count": 0,
-          "episodes": []
+          "episode_count": 1,
+          "episodes": [
+            {
+              "signal_date": "2026-10-22",
+              "signal_panic": 83.0,
+              "signal_fundamentals": 67.2,
+              "state_exit_date": null,
+              "status": "pending_entry"
+            }
+          ]
         }
       }
     }
