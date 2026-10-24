@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "methodology": "expectations-v1",
-  "generated_at": "2026-10-23T15:27:13+00:00",
+  "generated_at": "2026-10-24T01:08:55+00:00",
   "stocks": [
     {
       "symbol": "MSFT",
@@ -16,7 +16,7 @@
       "question": "Can cloud and AI demand earn an adequate return on the infrastructure required to serve it?",
       "countercase": "Strong revenue growth can coexist with weaker owner cash flow when capital spending and depreciation rise.",
       "invalidation": "Reassess if cloud growth weakens while infrastructure commitments and cash outflows keep rising.",
-      "collected_at": "2026-10-23T15:27:13+00:00",
+      "collected_at": "2026-10-24T01:08:55+00:00",
       "status": "available",
       "market": {
         "price": 521.0800170898438,
@@ -27,8 +27,8 @@
         "relative_return_3m_pts": 33.12850829901595,
         "distance_200d_pct": 19.748009091734374,
         "drawdown_1y_pct": -4.116293056345633,
-        "volume_balance": 0.23516472021345178,
-        "mood": 89.73,
+        "volume_balance": 0.23469739294103587,
+        "mood": 89.72,
         "history": [
           {
             "date": "2026-04-24",
@@ -658,10 +658,10 @@
           {
             "date": "2026-10-22",
             "close": 521.0800170898438,
-            "pressure": 89.73
+            "pressure": 89.72
           }
         ],
-        "market_cap": 3869303167514.6807
+        "market_cap": 3869303527559.0557
       },
       "financials": {
         "period_end": "2026-06-30",
@@ -710,17 +710,17 @@
       },
       "estimates": {
         "target_end": "2028-06-30",
-        "current_eps": 23.70396,
-        "revision_30d_pct": 0.11846121913806477,
-        "revision_60d_pct": 0.5513002890656167,
-        "revision_90d_pct": 4.6137438638944595
+        "current_eps": 23.70244,
+        "revision_30d_pct": 0.11205597398411268,
+        "revision_60d_pct": 0.5449228011968339,
+        "revision_90d_pct": 4.607626894108783
       },
       "previous_observation": {
-        "date": "2026-10-16",
+        "date": "2026-10-17",
         "period_end": "2026-06-30",
         "revenue": 331839000000.0,
         "operating_margin_pct": 46.780818408927225,
-        "mood": 91.82
+        "mood": 90.99
       }
     },
     {
@@ -736,7 +736,7 @@
       "question": "How much durable demand remains after the current infrastructure buildout?",
       "countercase": "Exceptional current margins and growth may normalize as customers improve utilization or deploy alternative chips.",
       "invalidation": "Reassess if customer spending slows, inventory builds, or pricing power deteriorates across product cycles.",
-      "collected_at": "2026-10-23T15:27:13+00:00",
+      "collected_at": "2026-10-24T01:08:55+00:00",
       "status": "available",
       "market": {
         "price": 212.2100067138672,
@@ -745,10 +745,10 @@
         "return_1w_pct": -2.3109096866936407,
         "return_3m_pct": 2.71101521641115,
         "relative_return_3m_pts": -0.9330530012387817,
-        "distance_200d_pct": 4.40796747565646,
+        "distance_200d_pct": 4.407967436464988,
         "drawdown_1y_pct": -11.298277110292588,
-        "volume_balance": 0.027262791250797832,
-        "mood": 53.33,
+        "volume_balance": 0.02697556478314952,
+        "mood": 53.32,
         "history": [
           {
             "date": "2026-04-24",
@@ -838,7 +838,7 @@
           {
             "date": "2026-05-19",
             "close": 220.61000061035156,
-            "pressure": 79.41
+            "pressure": 79.42
           },
           {
             "date": "2026-05-20",
@@ -1378,10 +1378,10 @@
           {
             "date": "2026-10-22",
             "close": 212.2100067138672,
-            "pressure": 53.33
+            "pressure": 53.32
           }
         ],
-        "market_cap": 5124234668038.969
+        "market_cap": 5124234800483.313
       },
       "financials": {
         "period_end": "2026-07-31",
@@ -1436,11 +1436,11 @@
         "revision_90d_pct": 19.477523783192787
       },
       "previous_observation": {
-        "date": "2026-10-16",
+        "date": "2026-10-17",
         "period_end": "2026-07-31",
         "revenue": 302969000000.0,
         "operating_margin_pct": 65.21426284537361,
-        "mood": 62.55
+        "mood": 58.61
       }
     },
     {
@@ -1456,7 +1456,7 @@
       "question": "Can AI investment defend search economics while expanding cloud profit?",
       "countercase": "Cheap-looking earnings can be misleading if AI changes search monetization or materially increases the cost per query.",
       "invalidation": "Reassess if search economics weaken persistently or capital intensity rises without corresponding cash generation.",
-      "collected_at": "2026-10-23T15:27:13+00:00",
+      "collected_at": "2026-10-24T01:08:55+00:00",
       "status": "available",
       "market": {
         "price": 324.2200012207031,
@@ -1465,10 +1465,10 @@
         "return_1w_pct": -7.15881103963466,
         "return_3m_pct": 1.4663182595690216,
         "relative_return_3m_pts": -2.17774995808091,
-        "distance_200d_pct": -4.918270525503443,
+        "distance_200d_pct": -4.9182706105985075,
         "drawdown_1y_pct": -19.372564025290995,
-        "volume_balance": 0.042043285644363985,
-        "mood": 47.03,
+        "volume_balance": 0.04169081024091975,
+        "mood": 47.02,
         "history": [
           {
             "date": "2026-04-24",
@@ -2098,10 +2098,10 @@
           {
             "date": "2026-10-22",
             "close": 324.2200012207031,
-            "pressure": 47.03
+            "pressure": 47.02
           }
         ],
-        "market_cap": 3965189480494.0186
+        "market_cap": 3965189511972.6934
       },
       "financials": {
         "period_end": "2026-06-30",
@@ -2153,14 +2153,14 @@
         "current_eps": 15.11603,
         "revision_30d_pct": 1.2829426774093458,
         "revision_60d_pct": 1.8440026911828098,
-        "revision_90d_pct": 2.3360631065167277
+        "revision_90d_pct": 2.2993471169348108
       },
       "previous_observation": {
-        "date": "2026-10-16",
+        "date": "2026-10-17",
         "period_end": "2026-06-30",
         "revenue": 445867000000.0,
         "operating_margin_pct": 33.11032213642185,
-        "mood": 51.68
+        "mood": 44.14
       }
     },
     {
@@ -2176,7 +2176,7 @@
       "question": "Can cloud and advertising profits fund growth while retail efficiency improves?",
       "countercase": "Consolidated margins can conceal very different businesses; lease obligations and capital spending can absorb operating gains.",
       "invalidation": "Reassess if AWS returns weaken and retail cash generation fails to offset investment requirements.",
-      "collected_at": "2026-10-23T15:27:13+00:00",
+      "collected_at": "2026-10-24T01:08:55+00:00",
       "status": "limited",
       "market": {
         "price": 250.3800048828125,
@@ -2187,7 +2187,7 @@
         "relative_return_3m_pts": 4.227201535664671,
         "distance_200d_pct": 2.9266153408587403,
         "drawdown_1y_pct": -11.8442311922067,
-        "volume_balance": 0.03224425173468443,
+        "volume_balance": 0.03202343983171516,
         "mood": 60.03,
         "history": [
           {
@@ -2821,7 +2821,7 @@
             "pressure": 60.03
           }
         ],
-        "market_cap": 2700677251980.098
+        "market_cap": 2700677197042.71
       },
       "financials": null,
       "estimates": null,
@@ -2840,7 +2840,7 @@
       "question": "Will AI-driven monetization justify the growing investment base?",
       "countercase": "Better ad performance may already be priced in while infrastructure spending and speculative projects reduce cash available to owners.",
       "invalidation": "Reassess if ad growth and monetization weaken while investment commitments continue to expand.",
-      "collected_at": "2026-10-23T15:27:13+00:00",
+      "collected_at": "2026-10-24T01:08:55+00:00",
       "status": "available",
       "market": {
         "price": 648.8499755859375,
@@ -2851,7 +2851,7 @@
         "relative_return_3m_pts": 5.4575720593520005,
         "distance_200d_pct": 2.7179529134339964,
         "drawdown_1y_pct": -16.55628889559566,
-        "volume_balance": -0.28812102579847615,
+        "volume_balance": -0.288279343922957,
         "mood": 58.49,
         "history": [
           {
@@ -3485,7 +3485,7 @@
             "pressure": 58.49
           }
         ],
-        "market_cap": 1652949253435.7139
+        "market_cap": 1652949302132.968
       },
       "financials": {
         "period_end": "2026-06-30",
@@ -3534,17 +3534,17 @@
       },
       "estimates": {
         "target_end": "2027-12-31",
-        "current_eps": 33.92248,
-        "revision_30d_pct": 0.14099794590489137,
-        "revision_60d_pct": -0.01738957179799598,
-        "revision_90d_pct": -3.4765259097639833
+        "current_eps": 33.94866,
+        "revision_30d_pct": 0.1463680746161947,
+        "revision_60d_pct": 0.05973726208928315,
+        "revision_90d_pct": -3.402032990859409
       },
       "previous_observation": {
-        "date": "2026-10-16",
+        "date": "2026-10-17",
         "period_end": "2026-06-30",
         "revenue": 228247000000.0,
         "operating_margin_pct": 38.08461885588857,
-        "mood": 75.46
+        "mood": 68.21
       }
     },
     {
@@ -3560,7 +3560,7 @@
       "question": "Can ecosystem cash generation support the growth expectations embedded in the share price?",
       "countercase": "Buybacks can support EPS while underlying demand slows; services economics may face regulatory pressure.",
       "invalidation": "Reassess if installed-base monetization weakens alongside sustained device demand deterioration.",
-      "collected_at": "2026-10-23T15:27:13+00:00",
+      "collected_at": "2026-10-24T01:08:55+00:00",
       "status": "available",
       "market": {
         "price": 348.2200012207031,
@@ -3569,10 +3569,10 @@
         "return_1w_pct": 1.818713807223138,
         "return_3m_pct": 4.654472954039424,
         "relative_return_3m_pts": 1.010404736389492,
-        "distance_200d_pct": 18.57629108675416,
+        "distance_200d_pct": 18.576290193386804,
         "drawdown_1y_pct": 0.0,
-        "volume_balance": 0.23713854007355925,
-        "mood": 65.29,
+        "volume_balance": 0.23731935642048002,
+        "mood": 65.3,
         "history": [
           {
             "date": "2026-04-24",
@@ -4202,10 +4202,10 @@
           {
             "date": "2026-10-22",
             "close": 348.2200012207031,
-            "pressure": 65.29
+            "pressure": 65.3
           }
         ],
-        "market_cap": 5081985517737.087
+        "market_cap": 5081985422611.408
       },
       "financials": {
         "period_end": "2026-06-30",
@@ -4260,11 +4260,11 @@
         "revision_90d_pct": -1.5204250805779005
       },
       "previous_observation": {
-        "date": "2026-10-16",
+        "date": "2026-10-17",
         "period_end": "2026-06-30",
         "revenue": 466823000000.0,
         "operating_margin_pct": 33.17295848747812,
-        "mood": 59.41
+        "mood": 66.27
       }
     },
     {
@@ -4280,7 +4280,7 @@
       "question": "How much of today's valuation depends on businesses that have yet to demonstrate durable cash flows?",
       "countercase": "A model anchored to current operations may miss successful autonomy or robotics commercialization. Those outcomes need separate evidence and scenarios.",
       "invalidation": "Reassess if core cash generation deteriorates while future-business assumptions become harder to substantiate.",
-      "collected_at": "2026-10-23T15:27:13+00:00",
+      "collected_at": "2026-10-24T01:08:55+00:00",
       "status": "available",
       "market": {
         "price": 374.5799865722656,
@@ -4291,7 +4291,7 @@
         "relative_return_3m_pts": 16.01858010135826,
         "distance_200d_pct": -3.1200232994607724,
         "drawdown_1y_pct": -23.53637975857549,
-        "volume_balance": -0.12173917177316225,
+        "volume_balance": -0.12189207588586999,
         "mood": 71.52,
         "history": [
           {
@@ -4925,7 +4925,7 @@
             "pressure": 71.52
           }
         ],
-        "market_cap": 1480613691952.4753
+        "market_cap": 1480613555838.5361
       },
       "financials": {
         "period_end": "2026-06-30",
@@ -4974,17 +4974,17 @@
       },
       "estimates": {
         "target_end": "2027-12-31",
-        "current_eps": 2.18881,
-        "revision_30d_pct": -0.38366314103146293,
-        "revision_60d_pct": 1.381115766101214,
-        "revision_90d_pct": -1.9416257867974696
+        "current_eps": 2.16396,
+        "revision_30d_pct": -1.5146274416995857,
+        "revision_60d_pct": 0.2486182739052348,
+        "revision_90d_pct": -2.5089541143874143
       },
       "previous_observation": {
-        "date": "2026-10-16",
+        "date": "2026-10-17",
         "period_end": "2026-06-30",
         "revenue": 103619000000.0,
         "operating_margin_pct": 4.605332998774355,
-        "mood": 35.2
+        "mood": 36.12
       }
     }
   ]
