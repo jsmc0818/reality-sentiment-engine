@@ -1,6 +1,6 @@
 {
-  "asof": "2026-10-30",
-  "generated_at_utc": "2026-10-31T15:49:27+00:00",
+  "asof": "2026-11-02",
+  "generated_at_utc": "2026-11-03T17:57:54+00:00",
   "refresh_policy": {
     "mode": "scheduled_static_publication",
     "stale_after_business_days": 1,
@@ -8,111 +8,111 @@
   },
   "scopes": {
     "sp500": {
-      "panic": 65.4,
-      "fundamentals": 69.9,
-      "fundamental_discrepancy": 35.3,
+      "panic": 75.5,
+      "fundamentals": 77.4,
+      "fundamental_discrepancy": 52.9,
       "coverage": {
         "panic_pct": 100.0,
         "panic_ready": true,
-        "panic_asof": "2026-10-30",
+        "panic_asof": "2026-11-02",
         "fundamentals_pct": 57,
-        "fundamentals_common_weight_pct": 57.2,
+        "fundamentals_common_weight_pct": 57.1,
         "fundamentals_common_cohort_pct": 100.0,
         "fundamentals_ready": true,
-        "entry_history_snapshot_count": 16,
+        "entry_history_snapshot_count": 17,
         "entry_history_snapshot_minimum": 64
       },
       "quadrant": {
-        "code": "normal",
-        "label": "NORMAL: lower stress, resilient consensus revisions",
-        "transition": "inactive"
+        "code": "golden",
+        "label": "CANDIDATE DISLOCATION: elevated stress, resilient consensus revisions",
+        "transition": "entered"
       },
-      "verdict": "Panic 65 / Consensus Earnings Health 70. Sentiment offers no edge; decisions belong to stock selection.",
+      "verdict": "Panic 76 / Consensus Earnings Health 77. Candidate dislocation for valuation and risk review, not an automatic deployment signal.",
       "analyst_eps": {
-        "analyst_eps_target_weight_pct": 57.2,
-        "analyst_eps_revision_30d_coverage_pct": 57.2,
-        "analyst_eps_revision_60d_coverage_pct": 57.2,
-        "analyst_eps_revision_90d_coverage_pct": 57.2,
-        "analyst_eps_common_coverage_pct": 57.2,
+        "analyst_eps_target_weight_pct": 57.1,
+        "analyst_eps_revision_30d_coverage_pct": 57.1,
+        "analyst_eps_revision_60d_coverage_pct": 57.1,
+        "analyst_eps_revision_90d_coverage_pct": 57.1,
+        "analyst_eps_common_coverage_pct": 57.1,
         "analyst_eps_common_cohort_pct": 100.0,
         "n_analyst_trends": 30,
         "analyst_eps_effective_name_count": 15.2,
-        "analyst_eps_owned_30d_coverage_pct": 55.1,
-        "analyst_eps_owned_60d_coverage_pct": 0.0,
+        "analyst_eps_owned_30d_coverage_pct": 53.9,
+        "analyst_eps_owned_60d_coverage_pct": 53.0,
         "analyst_eps_owned_90d_coverage_pct": 0.0,
         "analyst_eps_owned_common_coverage_pct": 0.0,
-        "analyst_eps_revision_30d_pct": 1.033,
-        "analyst_eps_revision_60d_pct": 1.973,
-        "analyst_eps_revision_90d_pct": 4.448,
+        "analyst_eps_revision_30d_pct": 2.376,
+        "analyst_eps_revision_60d_pct": 3.358,
+        "analyst_eps_revision_90d_pct": 4.384,
         "analyst_eps_up_breadth_30d_pct": 63.3,
-        "analyst_eps_neutral_breadth_30d_pct": 16.7,
-        "analyst_eps_down_breadth_30d_pct": 20.0,
-        "analyst_eps_name_breadth_30d_pct": 71.7,
-        "analyst_eps_cap_weighted_breadth_30d_pct": 71.7,
+        "analyst_eps_neutral_breadth_30d_pct": 20.0,
+        "analyst_eps_down_breadth_30d_pct": 16.7,
+        "analyst_eps_name_breadth_30d_pct": 73.3,
+        "analyst_eps_cap_weighted_breadth_30d_pct": 83.0,
         "analyst_eps_sector_coverage_pct": 100.0,
-        "analyst_eps_sector_breadth_30d_pct": 68.0,
-        "analyst_eps_revision_breadth_30d_pct": 69.8,
-        "analyst_eps_revision_7d_pct": 0.048
+        "analyst_eps_sector_breadth_30d_pct": 71.7,
+        "analyst_eps_revision_breadth_30d_pct": 72.5,
+        "analyst_eps_revision_7d_pct": 1.636
       },
       "components": {
         "panic": {
-          "term_structure": 74.4,
-          "credit_velocity": 53.4,
-          "vvix": 76.4,
-          "breadth": 52.8,
-          "put_call": 68.5
+          "term_structure": 90.2,
+          "credit_velocity": 83.8,
+          "vvix": 82.0,
+          "breadth": 41.0,
+          "put_call": 71.4
         },
         "fundamentals": {
-          "revision_score": 70.0,
-          "revision_breadth": 69.8
+          "revision_score": 80.7,
+          "revision_breadth": 72.5
         },
         "entry": {
-          "forward_pe": 18.38,
-          "equity_risk_premium_pts": 0.46,
-          "trailing_pe": 23.86
+          "forward_pe": 18.17,
+          "equity_risk_premium_pts": 0.56,
+          "trailing_pe": 23.68
         }
       },
       "data_quality": {
         "constituent_hash": "9a24868822fb30b74394c770a7a4c2e4a1f920385bc5cabc4d9b465b75ec7951",
         "constituent_count": 503,
         "market_cap_proxy_count": 503,
-        "constituent_price_count": 503,
-        "constituent_price_coverage_pct": 100.0,
+        "constituent_price_count": 502,
+        "constituent_price_coverage_pct": 99.8,
         "eps_source": "yfinance_market_cap_proxy_ranked_9a24868822fb",
-        "eps_observation_date": "2026-10-30",
+        "eps_observation_date": "2026-11-02",
         "eps_revision_basis": "vendor",
         "panic_components": {
           "term_structure": {
             "source": "Cboe official daily closes (VIX9D / VIX3M)",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 25.0
           },
           "credit_velocity": {
             "source": "FRED BAMLH0A0HYM2",
-            "observation_date": "2026-10-29",
-            "stale_business_days": 1,
+            "observation_date": "2026-11-02",
+            "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 22.0
           },
           "vvix": {
             "source": "Yahoo Finance adjusted close (^VVIX)",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 20.0
           },
           "breadth": {
             "source": "Yahoo Finance constituent adjusted closes",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 18.0
           },
           "put_call": {
             "source": "Cboe Equity Put/Call Ratio",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 15.0
@@ -121,68 +121,68 @@
       }
     },
     "ndx100": {
-      "panic": 72.4,
-      "fundamentals": 84.9,
-      "fundamental_discrepancy": 57.3,
+      "panic": 81.4,
+      "fundamentals": 91.3,
+      "fundamental_discrepancy": 72.7,
       "coverage": {
         "panic_pct": 100.0,
         "panic_ready": true,
-        "panic_asof": "2026-10-30",
+        "panic_asof": "2026-11-02",
         "fundamentals_pct": 87,
-        "fundamentals_common_weight_pct": 87.0,
+        "fundamentals_common_weight_pct": 87.1,
         "fundamentals_common_cohort_pct": 100.0,
         "fundamentals_ready": true,
-        "entry_history_snapshot_count": 15,
+        "entry_history_snapshot_count": 16,
         "entry_history_snapshot_minimum": 64
       },
       "quadrant": {
-        "code": "normal",
-        "label": "NORMAL: lower stress, resilient consensus revisions",
-        "transition": "inactive"
+        "code": "golden",
+        "label": "CANDIDATE DISLOCATION: elevated stress, resilient consensus revisions",
+        "transition": "entered"
       },
-      "verdict": "Panic 72 / Consensus Earnings Health 85. Sentiment offers no edge; decisions belong to stock selection.",
+      "verdict": "Panic 81 / Consensus Earnings Health 91. Candidate dislocation for valuation and risk review, not an automatic deployment signal.",
       "analyst_eps": {
-        "analyst_eps_target_weight_pct": 87.0,
-        "analyst_eps_revision_30d_coverage_pct": 87.0,
-        "analyst_eps_revision_60d_coverage_pct": 87.0,
-        "analyst_eps_revision_90d_coverage_pct": 87.0,
-        "analyst_eps_common_coverage_pct": 87.0,
+        "analyst_eps_target_weight_pct": 87.1,
+        "analyst_eps_revision_30d_coverage_pct": 87.1,
+        "analyst_eps_revision_60d_coverage_pct": 87.1,
+        "analyst_eps_revision_90d_coverage_pct": 87.1,
+        "analyst_eps_common_coverage_pct": 87.1,
         "analyst_eps_common_cohort_pct": 100.0,
         "n_analyst_trends": 30,
         "analyst_eps_effective_name_count": 13.1,
         "analyst_eps_owned_30d_coverage_pct": 86.1,
-        "analyst_eps_owned_60d_coverage_pct": 0.0,
+        "analyst_eps_owned_60d_coverage_pct": 82.9,
         "analyst_eps_owned_90d_coverage_pct": 0.0,
         "analyst_eps_owned_common_coverage_pct": 0.0,
-        "analyst_eps_revision_30d_pct": 3.433,
-        "analyst_eps_revision_60d_pct": 4.23,
-        "analyst_eps_revision_90d_pct": 6.95,
+        "analyst_eps_revision_30d_pct": 4.878,
+        "analyst_eps_revision_60d_pct": 5.84,
+        "analyst_eps_revision_90d_pct": 7.261,
         "analyst_eps_up_breadth_30d_pct": 66.7,
-        "analyst_eps_neutral_breadth_30d_pct": 20.0,
-        "analyst_eps_down_breadth_30d_pct": 13.3,
-        "analyst_eps_name_breadth_30d_pct": 76.7,
-        "analyst_eps_cap_weighted_breadth_30d_pct": 72.4,
+        "analyst_eps_neutral_breadth_30d_pct": 23.3,
+        "analyst_eps_down_breadth_30d_pct": 10.0,
+        "analyst_eps_name_breadth_30d_pct": 78.3,
+        "analyst_eps_cap_weighted_breadth_30d_pct": 84.8,
         "analyst_eps_sector_coverage_pct": 100.0,
-        "analyst_eps_sector_breadth_30d_pct": 66.7,
-        "analyst_eps_revision_breadth_30d_pct": 71.7,
-        "analyst_eps_revision_7d_pct": -0.062
+        "analyst_eps_sector_breadth_30d_pct": 78.4,
+        "analyst_eps_revision_breadth_30d_pct": 78.3,
+        "analyst_eps_revision_7d_pct": 1.734
       },
       "components": {
         "panic": {
-          "vxn_ratio": 95.9,
-          "vxn_level": 80.9,
-          "credit_velocity": 53.4,
-          "breadth": 75.5,
-          "put_call": 68.5
+          "vxn_ratio": 95.3,
+          "vxn_level": 87.5,
+          "credit_velocity": 83.8,
+          "breadth": 75.0,
+          "put_call": 71.4
         },
         "fundamentals": {
-          "revision_score": 93.8,
-          "revision_breadth": 71.7
+          "revision_score": 100.0,
+          "revision_breadth": 78.3
         },
         "entry": {
-          "forward_pe": 19.38,
-          "equity_risk_premium_pts": 0.18,
-          "trailing_pe": 26.25
+          "forward_pe": 19.11,
+          "equity_risk_premium_pts": 0.29,
+          "trailing_pe": 26.2
         }
       },
       "data_quality": {
@@ -192,40 +192,40 @@
         "constituent_price_count": 101,
         "constituent_price_coverage_pct": 100.0,
         "eps_source": "yfinance_market_cap_proxy_ranked_df73e1d0540a",
-        "eps_observation_date": "2026-10-30",
+        "eps_observation_date": "2026-11-02",
         "eps_revision_basis": "vendor",
         "panic_components": {
           "vxn_ratio": {
             "source": "Yahoo Finance adjusted close (^VXN / ^VIX)",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 15.0
           },
           "vxn_level": {
             "source": "Yahoo Finance adjusted close (^VXN)",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 15.0
           },
           "credit_velocity": {
             "source": "FRED BAMLH0A0HYM2",
-            "observation_date": "2026-10-29",
-            "stale_business_days": 1,
+            "observation_date": "2026-11-02",
+            "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 25.0
           },
           "breadth": {
             "source": "Yahoo Finance constituent adjusted closes",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 25.0
           },
           "put_call": {
             "source": "Cboe Equity Put/Call Ratio",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 20.0
@@ -234,26 +234,26 @@
       }
     },
     "mag7": {
-      "panic": 70.1,
-      "fundamentals": 56.9,
-      "fundamental_discrepancy": 27.0,
+      "panic": 79.0,
+      "fundamentals": 73.0,
+      "fundamental_discrepancy": 52.0,
       "coverage": {
         "panic_pct": 100.0,
         "panic_ready": true,
-        "panic_asof": "2026-10-30",
+        "panic_asof": "2026-11-02",
         "fundamentals_pct": 100,
         "fundamentals_common_weight_pct": 100.0,
         "fundamentals_common_cohort_pct": 100.0,
         "fundamentals_ready": true,
-        "entry_history_snapshot_count": 66,
+        "entry_history_snapshot_count": 67,
         "entry_history_snapshot_minimum": 64
       },
       "quadrant": {
-        "code": "normal",
-        "label": "NORMAL: lower stress, resilient consensus revisions",
-        "transition": "inactive"
+        "code": "golden",
+        "label": "CANDIDATE DISLOCATION: elevated stress, resilient consensus revisions",
+        "transition": "entered"
       },
-      "verdict": "Panic 70 / Consensus Earnings Health 57. Sentiment offers no edge; decisions belong to stock selection.",
+      "verdict": "Panic 79 / Consensus Earnings Health 73. Candidate dislocation for valuation and risk review, not an automatic deployment signal.",
       "analyst_eps": {
         "analyst_eps_target_weight_pct": 100.0,
         "analyst_eps_revision_30d_coverage_pct": 100.0,
@@ -264,38 +264,38 @@
         "n_analyst_trends": 7,
         "analyst_eps_effective_name_count": 7.0,
         "analyst_eps_owned_30d_coverage_pct": 100.0,
-        "analyst_eps_owned_60d_coverage_pct": 0.0,
+        "analyst_eps_owned_60d_coverage_pct": 100.0,
         "analyst_eps_owned_90d_coverage_pct": 0.0,
         "analyst_eps_owned_common_coverage_pct": 0.0,
-        "analyst_eps_revision_30d_pct": 0.455,
-        "analyst_eps_revision_60d_pct": 1.094,
-        "analyst_eps_revision_90d_pct": 2.991,
-        "analyst_eps_up_breadth_30d_pct": 42.9,
-        "analyst_eps_neutral_breadth_30d_pct": 14.3,
-        "analyst_eps_down_breadth_30d_pct": 42.9,
-        "analyst_eps_name_breadth_30d_pct": 50.0,
-        "analyst_eps_cap_weighted_breadth_30d_pct": 50.0,
+        "analyst_eps_revision_30d_pct": 2.031,
+        "analyst_eps_revision_60d_pct": 2.58,
+        "analyst_eps_revision_90d_pct": 3.124,
+        "analyst_eps_up_breadth_30d_pct": 57.1,
+        "analyst_eps_neutral_breadth_30d_pct": 28.6,
+        "analyst_eps_down_breadth_30d_pct": 14.3,
+        "analyst_eps_name_breadth_30d_pct": 71.4,
+        "analyst_eps_cap_weighted_breadth_30d_pct": 71.4,
         "analyst_eps_sector_coverage_pct": 100.0,
-        "analyst_eps_revision_breadth_30d_pct": 50.0,
-        "analyst_eps_revision_7d_pct": 0.023
+        "analyst_eps_revision_breadth_30d_pct": 71.4,
+        "analyst_eps_revision_7d_pct": 1.679
       },
       "components": {
         "panic": {
-          "vxn_ratio": 95.9,
-          "vxn_level": 80.9,
-          "credit_velocity": 53.4,
-          "pairwise_corr": 66.2,
-          "put_call": 68.5
+          "vxn_ratio": 95.3,
+          "vxn_level": 87.5,
+          "credit_velocity": 83.8,
+          "pairwise_corr": 65.6,
+          "put_call": 71.4
         },
         "fundamentals": {
-          "revision_score": 61.5,
-          "revision_breadth": 50.0
+          "revision_score": 74.1,
+          "revision_breadth": 71.4
         },
         "entry": {
-          "forward_pe": 22.37,
-          "equity_risk_premium_pts": -0.51,
-          "trailing_pe": 25.88,
-          "divergence_pts": 10.42
+          "forward_pe": 22.11,
+          "equity_risk_premium_pts": -0.42,
+          "trailing_pe": 26.0,
+          "divergence_pts": 12.34
         }
       },
       "data_quality": {
@@ -305,40 +305,40 @@
         "constituent_price_count": 7,
         "constituent_price_coverage_pct": 100.0,
         "eps_source": "yfinance_market_cap_proxy_ranked_b4d410edf0e5",
-        "eps_observation_date": "2026-10-30",
+        "eps_observation_date": "2026-11-02",
         "eps_revision_basis": "vendor",
         "panic_components": {
           "vxn_ratio": {
             "source": "Yahoo Finance adjusted close (^VXN / ^VIX)",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 15.0
           },
           "vxn_level": {
             "source": "Yahoo Finance adjusted close (^VXN)",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 15.0
           },
           "credit_velocity": {
             "source": "FRED BAMLH0A0HYM2",
-            "observation_date": "2026-10-29",
-            "stale_business_days": 1,
+            "observation_date": "2026-11-02",
+            "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 25.0
           },
           "pairwise_corr": {
             "source": "Yahoo Finance Magnificent Seven downside-return correlations",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 25.0
           },
           "put_call": {
             "source": "Cboe Equity Put/Call Ratio",
-            "observation_date": "2026-10-30",
+            "observation_date": "2026-11-02",
             "stale_business_days": 0,
             "fresh": true,
             "weight_pct": 20.0
