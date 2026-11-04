@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at_utc": "2026-11-03T17:57:54+00:00",
+  "generated_at_utc": "2026-11-04T18:07:58+00:00",
   "entry_rule": "first close after a Candidate Dislocation state begins",
   "horizons_sessions": [
     21,
@@ -71,8 +71,11 @@
               "signal_date": "2026-11-02",
               "signal_panic": 75.5,
               "signal_fundamentals": 77.4,
-              "state_exit_date": null,
-              "status": "pending_entry"
+              "state_exit_date": "2026-11-03",
+              "entry_date": "2026-11-03",
+              "entry_price": 7568.9199,
+              "max_drawdown_to_date_pct": 0.0,
+              "status": "maturing"
             }
           ]
         },
@@ -94,7 +97,10 @@
               "signal_panic": 81.4,
               "signal_fundamentals": 91.3,
               "state_exit_date": null,
-              "status": "pending_entry"
+              "entry_date": "2026-11-03",
+              "entry_price": 28180.2598,
+              "max_drawdown_to_date_pct": 0.0,
+              "status": "maturing"
             }
           ]
         },
@@ -107,7 +113,7 @@
               "signal_fundamentals": 67.2,
               "state_exit_date": "2026-10-27",
               "entry_date": "2026-10-23",
-              "entry_price": 410.7326,
+              "entry_price": 416.4577,
               "max_drawdown_to_date_pct": -4.71,
               "status": "maturing"
             },
@@ -116,7 +122,10 @@
               "signal_panic": 79.0,
               "signal_fundamentals": 73.0,
               "state_exit_date": null,
-              "status": "pending_entry"
+              "entry_date": "2026-11-03",
+              "entry_price": 407.6743,
+              "max_drawdown_to_date_pct": 0.0,
+              "status": "maturing"
             }
           ]
         }
