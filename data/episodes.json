@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at_utc": "2026-11-06T17:36:37+00:00",
+  "generated_at_utc": "2026-11-07T16:34:57+00:00",
   "entry_rule": "first close after a Candidate Dislocation state begins",
   "horizons_sessions": [
     21,
@@ -82,7 +82,10 @@
               "signal_panic": 83.3,
               "signal_fundamentals": 77.2,
               "state_exit_date": null,
-              "status": "pending_entry"
+              "entry_date": "2026-11-06",
+              "entry_price": 7376.8599,
+              "max_drawdown_to_date_pct": 0.0,
+              "status": "maturing"
             }
           ]
         },
@@ -114,7 +117,10 @@
               "signal_panic": 85.2,
               "signal_fundamentals": 91.2,
               "state_exit_date": null,
-              "status": "pending_entry"
+              "entry_date": "2026-11-06",
+              "entry_price": 26989.9902,
+              "max_drawdown_to_date_pct": 0.0,
+              "status": "maturing"
             }
           ]
         },
@@ -127,7 +133,7 @@
               "signal_fundamentals": 67.2,
               "state_exit_date": "2026-10-27",
               "entry_date": "2026-10-23",
-              "entry_price": 406.6937,
+              "entry_price": 402.1417,
               "max_drawdown_to_date_pct": -6.29,
               "status": "maturing"
             },
@@ -137,7 +143,7 @@
               "signal_fundamentals": 73.0,
               "state_exit_date": "2026-11-04",
               "entry_date": "2026-11-03",
-              "entry_price": 398.1162,
+              "entry_price": 393.6602,
               "max_drawdown_to_date_pct": -4.78,
               "status": "maturing"
             },
@@ -145,8 +151,11 @@
               "signal_date": "2026-11-05",
               "signal_panic": 81.4,
               "signal_fundamentals": 72.3,
-              "state_exit_date": null,
-              "status": "pending_entry"
+              "state_exit_date": "2026-11-06",
+              "entry_date": "2026-11-06",
+              "entry_price": 387.217,
+              "max_drawdown_to_date_pct": 0.0,
+              "status": "maturing"
             }
           ]
         }
