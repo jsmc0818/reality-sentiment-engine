@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at_utc": "2026-11-10T18:01:22+00:00",
+  "generated_at_utc": "2026-11-11T17:59:10+00:00",
   "entry_rule": "first close after a Candidate Dislocation state begins",
   "horizons_sessions": [
     21,
@@ -84,13 +84,13 @@
               "state_exit_date": "2026-11-09",
               "entry_date": "2026-11-06",
               "entry_price": 7376.8599,
-              "max_drawdown_to_date_pct": 0.0,
+              "max_drawdown_to_date_pct": -0.38,
               "status": "maturing"
             }
           ]
         },
         "ndx100": {
-          "episode_count": 3,
+          "episode_count": 4,
           "episodes": [
             {
               "signal_date": "2026-10-22",
@@ -119,13 +119,20 @@
               "state_exit_date": "2026-11-09",
               "entry_date": "2026-11-06",
               "entry_price": 26989.9902,
-              "max_drawdown_to_date_pct": 0.0,
+              "max_drawdown_to_date_pct": -0.6,
               "status": "maturing"
+            },
+            {
+              "signal_date": "2026-11-10",
+              "signal_panic": 78.1,
+              "signal_fundamentals": 91.2,
+              "state_exit_date": null,
+              "status": "pending_entry"
             }
           ]
         },
         "mag7": {
-          "episode_count": 3,
+          "episode_count": 4,
           "episodes": [
             {
               "signal_date": "2026-10-22",
@@ -153,9 +160,16 @@
               "signal_fundamentals": 72.3,
               "state_exit_date": "2026-11-06",
               "entry_date": "2026-11-06",
-              "entry_price": 384.0387,
-              "max_drawdown_to_date_pct": 0.0,
+              "entry_price": 384.0388,
+              "max_drawdown_to_date_pct": -0.95,
               "status": "maturing"
+            },
+            {
+              "signal_date": "2026-11-10",
+              "signal_panic": 76.1,
+              "signal_fundamentals": 71.4,
+              "state_exit_date": null,
+              "status": "pending_entry"
             }
           ]
         }
